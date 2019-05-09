@@ -1,3 +1,5 @@
+import numpy as np 
+
 def heuristic(env, s):
     # Heuristic for:
     # 1. Testing. 
