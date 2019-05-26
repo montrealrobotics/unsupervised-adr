@@ -64,19 +64,25 @@ class GaussianPolicy(nn.Module):
 class CategoricalPolicy(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(CategoricalPolicy, self).__init__()
-        self.affine1 = nn.Linear(state_dim, action_dim)
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, 64), 
+            nn.Tanh(),
+            nn.Linear(64, 64),
+            nn.Tanh(),
+            nn.Linear(64, action_dim)
+        )
 
         self.saved_log_probs = []
         self.rewards = []
 
     def forward(self, x):
-        action_scores = self.affine1(x)
+        action_scores = self.net(x)
         return F.softmax(action_scores, dim=1)
 
 class BobPolicy:
     def __init__(self, state_dim=8, action_dim=2):
         self.policy = GaussianPolicy(state_dim, action_dim)
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-3)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-4)
 
     def select_action(self, state, deterministic=False, save_log_probs=True):
         state = torch.from_numpy(state).float().unsqueeze(0)
@@ -135,7 +141,7 @@ class BobPolicy:
 class AlicePolicy:
     def __init__(self, state_dim=8, action_dim=2):
         self.policy = CategoricalPolicy(state_dim, action_dim)
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-3)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-4)
 
     def select_action(self, state, deterministic=False, save_log_probs=True):
         state = torch.from_numpy(state).float().unsqueeze(0)
@@ -143,10 +149,11 @@ class AlicePolicy:
         m = Categorical(probs)
 
         if deterministic:
-            action = m.mode()
+            action = torch.from_numpy(np.array([torch.argmax(probs)]))
+
         else:
             action = m.sample()
-       
+            
         if save_log_probs:
             self.policy.saved_log_probs.append(m.log_prob(action))
 

@@ -67,3 +67,8 @@ register(
     max_episode_steps=1000,
     kwargs={'config': 'envs/config/LunarLanderRandomized/random_820.json'}
 )
+
+register(
+    id='CartPoleContinuous-v0',
+    entry_point='envs.cartpole:CartPoleContinuousEnv',
+)

@@ -35,7 +35,7 @@ def evaluate_policy(env, policy):
     while nepisodes < N_ROLLOUTS:        
         with torch.no_grad():
             uncalibrated_action = np.array([uncalibrated(env, state[i]) for i in range(N_PROCS)])
-            residual_action = policy.select_action(state, deterministic=False, save_log_probs=False)[0]
+            residual_action = policy.select_action(state, deterministic=True, save_log_probs=False)[0]
             action = uncalibrated_action + residual_action
 
         state, reward, done, _ = env.step(action)

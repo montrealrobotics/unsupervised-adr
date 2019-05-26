@@ -1,5 +1,6 @@
 import argparse
 import gym
+import pybulletgym
 import numpy as np
 from itertools import count
 
@@ -17,8 +18,8 @@ import psutil
 
 
 class Arguments:
-    randomized_env_id = 'LunarLanderDefault-v0'
-    eval_env_id = 'LunarLanderDefault-v0'
+    randomized_env_id = 'ReacherPyBulletEnv-v0'
+    eval_env_id = 'ReacherPyBulletEnv-v0'
     log_interval = 10
 
     def __init__(self, seed, sp_gamma, sp_percent):
@@ -36,18 +37,18 @@ parser.add_argument('--sp-gamma', type=float, default=0.1, metavar='N',
                     help='Self Play gamma')
 parser.add_argument('--sp-percent', type=float, default=0.1, metavar='N',
                     help='Self Play percent')
-parser.add_argument('--randomized-env-id', type=str, default='LunarLanderDefault-v0')
-parser.add_argument('--eval-env-id', type=str,default='LunarLanderDefault-v0')
+parser.add_argument('--randomized-env-id', type=str, default='ReacherPyBulletEnv-v0')
+parser.add_argument('--eval-env-id', type=str,default='ReacherPyBulletEnv-v0')
 
 N_PROCS = 5
 N_ROLLOUTS = 20
-MAX_TIMESTEPS = 1000
+MAX_TIMESTEPS = 100
 STATE_DIM = 8
-TAU = 0.01
+TAU = 0.1
 
 
 def check_closeness(state, goal):
-    dist =  np.linalg.norm(state[:4] - goal[:4]) ** 2
+    dist =  np.linalg.norm(state - goal) ** 2
 
     return dist < 0.1    
 
@@ -82,7 +83,7 @@ def evaluate_policy(env, policy):
 def experiment(args):
     # args = parser.parse_args()
 
-    model_path = 'saved-models/expt-1/G{}-P{}/{}'.format(args.sp_gamma, args.sp_percent, args.seed)
+    model_path = 'saved-models/expt-3-/G{}-P{}/{}'.format(args.sp_gamma, args.sp_percent, args.seed)
     device = "cpu" # torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     training_env = gym.make(args.randomized_env_id)
@@ -107,9 +108,11 @@ def experiment(args):
     print("---------------------------------------\n")
 
     alice_policy = AlicePolicy(state_dim=16)
-    bob_policy = BobPolicy(state_dim=16)
-    old_bob_policy = BobPolicy(state_dim=16)
-    old_bob_policy.load_from_policy(bob_policy)
+    bob_policy = BobPolicy(state_dim=18, action_dim=2)
+    alice_acting_policy = BobPolicy(state_dim=9, action_dim=2)
+
+    # TODO: Keep changing this?
+    alice_acting_policy.load_from_file('saved-models/expt-0b-reacher/good.pth')
 
     total_timesteps = 1e6
     timesteps = 0
@@ -131,15 +134,12 @@ def experiment(args):
             time_alice = 0
    
             while not alice_done and time_alice <= MAX_TIMESTEPS:
-                uncalibrated_action = uncalibrated(training_env, state) 
-                residual_action = old_bob_policy.select_action(alice_state, save_log_probs=False)
-                action = uncalibrated_action + residual_action
-
+                action = old_bob_policy.select_action(alice_state, save_log_probs=False)
                 state, reward, env_done, _ = training_env.step(action)
                 alice_signal = alice_policy.select_action(alice_state)
 
                 # TODO: Why does it end right away?
-                alice_done = env_done or (alice_signal and time_alice > 100)
+                alice_done = env_done or alice_signal
 
                 if not alice_done: 
                     alice_state[:STATE_DIM] = state
@@ -156,9 +156,7 @@ def experiment(args):
             time_bob = 0
 
             while not bob_done and time_alice + time_bob <= MAX_TIMESTEPS:
-                uncalibrated_action = uncalibrated(training_env, state) 
-                residual_action = bob_policy.select_action(bob_state)
-                action = uncalibrated_action + residual_action
+                action = bob_policy.select_action(bob_state)
 
                 state, reward, env_done, _ = training_env.step(action)
                 bob_signal = check_closeness(state, goal_state)
@@ -191,9 +189,7 @@ def experiment(args):
             bob_state = np.concatenate([state, np.zeros(STATE_DIM)])
 
             while not done:
-                uncalibrated_action = uncalibrated(training_env, state) 
-                residual_action = bob_policy.select_action(bob_state)
-                action = uncalibrated_action + residual_action
+                action = bob_policy.select_action(bob_state)
 
                 state, reward, done, _ = training_env.step(action)
                 bob_state[:STATE_DIM] = state
@@ -207,8 +203,8 @@ def experiment(args):
         nepisodes += 1
 
         # Update old bob 
-        for param, target_param in zip(bob_policy.policy.parameters(), old_bob_policy.policy.parameters()):
-            target_param.data.copy_(TAU * param.data + (1 - TAU) * target_param.data)
+        # for param, target_param in zip(bob_policy.policy.parameters(), old_bob_policy.policy.parameters()):
+        #     target_param.data.copy_(TAU * param.data + (1 - TAU) * target_param.data)
 
         if nepisodes % args.log_interval == 0:
             eval_rewards = evaluate_policy(rollout_env, bob_policy)
