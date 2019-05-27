@@ -45,7 +45,7 @@ N_ROLLOUTS = 20
 MAX_TIMESTEPS = 100
 STATE_DIM = 9
 GOAL_DIM = 2
-TAU = 0.1
+TAU = 0.01
 
 
 def check_closeness(state, goal):
@@ -80,7 +80,7 @@ def evaluate_policy(env, policy):
 def experiment(args):
     # args = parser.parse_args()
 
-    model_path = 'saved-models/expt-3-/G{}-P{}/{}'.format(args.sp_gamma, args.sp_percent, args.seed)
+    model_path = 'saved-models/expt-4-chaser/G{}-P{}/{}'.format(args.sp_gamma, args.sp_percent, args.seed)
     device = "cpu" # torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     training_env = gym.make(args.randomized_env_id)
@@ -107,8 +107,7 @@ def experiment(args):
     bob_policy = BobPolicy(state_dim=18, action_dim=2)
     alice_acting_policy = BobPolicy(state_dim=9, action_dim=2)
 
-    # TODO: Keep changing this \in [best, good, okay, bad]
-    alice_acting_policy.load_from_file('saved-models/expt-0b-reacher/best.pth')
+    alice_acting_policy.load_from_policy(bob_policy)
 
     total_timesteps = 1e6
     timesteps = 0
@@ -172,8 +171,8 @@ def experiment(args):
             reward_alice = args.sp_gamma * max(0, time_bob - time_alice)
             reward_bob = -args.sp_gamma * time_bob
 
-            # print('Alice Time|Rew: {}|{}\nBob Time|Rew: {}|{}, BobDone {}'.format(time_alice, reward_alice, 
-            #     time_bob, reward_bob, bob_signal))
+            print('Alice Time|Rew: {}|{}\nBob Time|Rew: {}|{}, BobDone {}'.format(time_alice, reward_alice, 
+                time_bob, reward_bob, bob_signal))
 
             alice_policy.log(reward_alice)
             bob_policy.log(reward_bob)
@@ -202,9 +201,11 @@ def experiment(args):
 
             nepisodes += 1
 
-            # Update old bob 
-            # for param, target_param in zip(bob_policy.policy.parameters(), old_bob_policy.policy.parameters()):
-            #     target_param.data.copy_(TAU * param.data + (1 - TAU) * target_param.data)
+            for param, target_param in zip(
+                    bob_policy.policy.parameters(), alice_acting_policy.policy.parameters()
+                ):
+
+                target_param.data.copy_(TAU * param.data + (1 - TAU) * target_param.data)
 
             if nepisodes % args.log_interval == 0:
                 eval_rewards = evaluate_policy(rollout_env, bob_policy)
@@ -227,10 +228,9 @@ def experiment(args):
         learning_curve=learning_curve, distances=distances)
 
 if __name__ == '__main__':
-    seeds = [100, 101]
+    seeds = [100, 101, 102]
     sp_gammas = [0.001]
-    sp_percents = reversed([0.0, 0.01, 0.1, 0.25])
-    # sp_percents = [0.0]
+    sp_percents = reversed([0.0, 0.1, 0.25])
 
     for seed in seeds:
         for sp_gamma in sp_gammas:

@@ -37,6 +37,7 @@ def evaluate_policy(env, policy, render=False):
                 action = policy.select_action(state, deterministic=True, save_log_probs=False)
 
             state, reward, done, _ = env.step(action)
+            # env.render()
             ep_reward += reward           
 
         rewards.append(ep_reward)
@@ -45,7 +46,7 @@ def evaluate_policy(env, policy, render=False):
     return rewards
 
 def main(args):
-    model_path = 'saved-models/expt-0b-reacher/lowerlr-{}/{}'.format(args.randomized_env_id, args.seed)
+    model_path = 'saved-models/expt-0b-mtncar/lowerlr-{}/{}'.format(args.randomized_env_id, args.seed)
     device = "cpu" # torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     training_env = gym.make(args.randomized_env_id)
@@ -55,7 +56,7 @@ def main(args):
     if not os.path.exists(model_path):
         os.makedirs(model_path)
 
-    policy = BobPolicy(state_dim=9, action_dim=2)
+    policy = BobPolicy(state_dim=2, action_dim=2)
 
     total_timesteps = 1e6
     timesteps = 0

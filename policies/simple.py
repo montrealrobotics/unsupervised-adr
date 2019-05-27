@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.distributions import Categorical
+from torch.distributions import Categorical, Bernoulli
 
 eps = np.finfo(np.float32).eps.item()
 
@@ -64,13 +64,7 @@ class GaussianPolicy(nn.Module):
 class CategoricalPolicy(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(CategoricalPolicy, self).__init__()
-        self.net = nn.Sequential(
-            nn.Linear(state_dim, 64), 
-            nn.Tanh(),
-            nn.Linear(64, 64),
-            nn.Tanh(),
-            nn.Linear(64, action_dim)
-        )
+        self.net = nn.Linear(state_dim, action_dim)
 
         self.saved_log_probs = []
         self.rewards = []
@@ -78,6 +72,29 @@ class CategoricalPolicy(nn.Module):
     def forward(self, x):
         action_scores = self.net(x)
         return F.softmax(action_scores, dim=1)
+
+class BernoulliPolicy(nn.Module):
+    def __init__(self, state_dim, action_dim):
+        super(BernoulliPolicy, self).__init__()
+        self.base = nn.Sequential(
+            nn.Linear(state_dim, 32),
+            nn.ReLU(),
+            nn.Linear(32, 32),
+            nn.ReLU(),
+        )
+
+        self.out = nn.Linear(32, 1)
+        self.value = nn.Linear(32, 1)
+
+        self.saved_log_probs = []
+        self.rewards = []
+        self.values = []
+
+    def forward(self, x):
+        x = self.base(x)
+        termination_prob = self.out(x)
+        value = self.value(x)
+        return F.sigmoid(termination_prob), value
 
 class BobPolicy:
     def __init__(self, state_dim=8, action_dim=2):
@@ -127,6 +144,7 @@ class BobPolicy:
             R = r + gamma * R
             rewards.insert(0, R)
         rewards = torch.tensor(rewards)
+
         rewards = (rewards - rewards.mean()) / (rewards.std() + eps)
         for log_prob, reward in zip(self.policy.saved_log_probs, rewards):
             policy_loss.append(-log_prob * reward)
@@ -140,22 +158,19 @@ class BobPolicy:
 
 class AlicePolicy:
     def __init__(self, state_dim=8, action_dim=2):
-        self.policy = CategoricalPolicy(state_dim, action_dim)
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-4)
+        self.policy = BernoulliPolicy(state_dim, action_dim)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=3e-3)
 
     def select_action(self, state, deterministic=False, save_log_probs=True):
         state = torch.from_numpy(state).float().unsqueeze(0)
-        probs = self.policy(state)
-        m = Categorical(probs)
+        probs, value = self.policy(state)
+        m = Bernoulli(probs)
 
-        if deterministic:
-            action = torch.from_numpy(np.array([torch.argmax(probs)]))
-
-        else:
-            action = m.sample()
+        action = m.sample()
             
         if save_log_probs:
             self.policy.saved_log_probs.append(m.log_prob(action))
+            self.policy.values.append(value)
 
         return action.cpu().data.numpy()[0]
 
@@ -182,18 +197,30 @@ class AlicePolicy:
     def finish_episode(self, gamma):
         R = 0
         policy_loss = []
-        rewards = []
+        returns = []
+
+        # Normalize
+        self.policy.rewards = np.array(self.policy.rewards)
+        self.policy.rewards = (self.policy.rewards - self.policy.rewards.mean()) / (self.policy.rewards.std() + eps)
+
         for r in self.policy.rewards[::-1]:
             R = r + gamma * R
-            rewards.insert(0, R)
-        rewards = torch.tensor(rewards)
+            returns.insert(0, torch.FloatTensor([R]).unsqueeze(1))
 
-        rewards = (rewards - rewards.mean()) / (rewards.std() + eps)
-        for log_prob, reward in zip(self.policy.saved_log_probs, rewards):
-            policy_loss.append(-log_prob * reward)
+        log_probs = torch.cat(self.policy.saved_log_probs)
+        returns = torch.cat(returns).detach()
+        values = torch.cat(self.policy.values)
+
+        advantage = returns - values
+
+        actor_loss = -(log_probs * advantage.detach()).mean()
+        critic_loss = advantage.pow(2).mean()
+        loss = actor_loss + 0.5 * critic_loss
+     
         self.optimizer.zero_grad()
-        policy_loss = torch.cat(policy_loss).sum()
-        policy_loss.backward()
+        loss.backward()
         self.optimizer.step()
-        del self.policy.rewards[:]
-        del self.policy.saved_log_probs[:]
+
+        self.policy.rewards = []
+        self.policy.saved_log_probs = []
+        self.policy.values = []
