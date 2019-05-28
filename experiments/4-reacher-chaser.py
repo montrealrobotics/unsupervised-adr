@@ -89,6 +89,9 @@ def experiment(args):
         args.eval_env_id = args.randomized_env_id
 
     rollout_env = gym.make(args.randomized_env_id)
+
+    rollout_env.seed(args.seed)
+    training_env.seed(args.seed)
     torch.manual_seed(args.seed)
 
     if not os.path.exists(model_path):
@@ -105,7 +108,7 @@ def experiment(args):
 
     alice_policy = AlicePolicy(state_dim=4)
     bob_policy = BobPolicy(state_dim=18, action_dim=2)
-    alice_acting_policy = BobPolicy(state_dim=9, action_dim=2)
+    alice_acting_policy = BobPolicy(state_dim=18, action_dim=2)
 
     alice_acting_policy.load_from_policy(bob_policy)
 
@@ -124,6 +127,7 @@ def experiment(args):
             # Alice
             training_env.seed(nselfplay)
             state = training_env.reset()
+            initial_state = np.copy(state)
             xy = training_env.robot.fingertip.pose().xyz()[:2]
             alice_state = np.concatenate([xy, np.zeros(GOAL_DIM)])
             alice_done = False
@@ -132,7 +136,9 @@ def experiment(args):
             time_alice = 0
    
             while not alice_done and time_alice < MAX_TIMESTEPS:
-                action = alice_acting_policy.select_action(state, save_log_probs=False)
+                # TODO: What should this be?
+                action = alice_acting_policy.select_action(np.concatenate([state, np.ones(STATE_DIM)]),
+                    save_log_probs=False)
                 state, reward, env_done, _ = training_env.step(action)
                 alice_signal = alice_policy.select_action(alice_state)
 
@@ -171,8 +177,8 @@ def experiment(args):
             reward_alice = args.sp_gamma * max(0, time_bob - time_alice)
             reward_bob = -args.sp_gamma * time_bob
 
-            print('Alice Time|Rew: {}|{}\nBob Time|Rew: {}|{}, BobDone {}'.format(time_alice, reward_alice, 
-                time_bob, reward_bob, bob_signal))
+                # print('Alice Time|Rew: {}|{}\nBob Time|Rew: {}|{}, BobDone {}'.format(time_alice, reward_alice, 
+                #     time_bob, reward_bob, bob_signal))
 
             alice_policy.log(reward_alice)
             bob_policy.log(reward_bob)
@@ -228,9 +234,9 @@ def experiment(args):
         learning_curve=learning_curve, distances=distances)
 
 if __name__ == '__main__':
-    seeds = [100, 101, 102]
+    seeds = [98, 99, 100]
     sp_gammas = [0.001]
-    sp_percents = reversed([0.0, 0.1, 0.25])
+    sp_percents = [0.0, 0.1, 0.25]
 
     for seed in seeds:
         for sp_gamma in sp_gammas:

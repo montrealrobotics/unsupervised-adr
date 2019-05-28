@@ -94,7 +94,7 @@ class BernoulliPolicy(nn.Module):
         x = self.base(x)
         termination_prob = self.out(x)
         value = self.value(x)
-        return F.sigmoid(termination_prob), value
+        return torch.sigmoid(termination_prob), value
 
 class BobPolicy:
     def __init__(self, state_dim=8, action_dim=2):
