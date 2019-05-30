@@ -112,7 +112,7 @@ def experiment(args):
 
     alice_acting_policy.load_from_policy(bob_policy)
 
-    total_timesteps = 1e6
+    total_episodes = 1e5
     timesteps = 0
     nepisodes = 0
     nselfplay = 0
@@ -122,7 +122,7 @@ def experiment(args):
     learning_curve = []
     distances = []
 
-    while timesteps < total_timesteps:
+    while ntarget < total_episodes:
         if np.random.random() < args.sp_percent:
             # Alice
             training_env.seed(nselfplay)
@@ -236,10 +236,11 @@ def experiment(args):
 if __name__ == '__main__':
     seeds = [98, 99, 100]
     sp_gammas = [0.001]
-    sp_percents = [0.0, 0.1, 0.25]
+    sp_percents = [0.01, 0.1, 0.25]
 
     for seed in seeds:
         for sp_gamma in sp_gammas:
             for sp_percent in sp_percents:
+                assert sp_percent > 0., 'Keep SP percent above 0!'
                 args = Arguments(seed=seed, sp_gamma=sp_gamma, sp_percent=sp_percent)
                 experiment(args)
