@@ -177,9 +177,6 @@ def experiment(args):
             reward_alice = args.sp_gamma * max(0, time_bob - time_alice)
             reward_bob = -args.sp_gamma * time_bob
 
-                # print('Alice Time|Rew: {}|{}\nBob Time|Rew: {}|{}, BobDone {}'.format(time_alice, reward_alice, 
-                #     time_bob, reward_bob, bob_signal))
-
             alice_policy.log(reward_alice)
             bob_policy.log(reward_bob)
 
