@@ -2,17 +2,22 @@ import gym
 import pybulletgym
 import time
 import numpy as np
+from envs import *
+from envs.wrappers import RandomizedEnvWrapper
 
+np.random.seed(1234)
 
-training_env = gym.make('ReacherPyBulletEnv-v0')
-training_env.render(mode='human')
-st = training_env.reset()
-xy = training_env.robot.fingertip.pose().xyz()[:2]
+env = gym.make('ReacherRandomized-v0')
+env = RandomizedEnvWrapper(env=env, seed=0)
 
-for i in range(1000):
-    training_env.step([1, -1])
-    print('Time: {}, Distance: {}'.format(i, np.linalg.norm(training_env.robot.fingertip.pose().xyz()[:2] - xy)))
-    training_env.render()
-    time.sleep(0.05)
+lengths = np.linspace(0, 1, 10)
+for i in range(10):
+    print(lengths[i])
+    env.randomize(randomized_values=[lengths[i]])
+    env.reset()
+    for _ in range(200):
+        obs, reward, done, _ = env.step(env.action_space.sample())
+        env.render()
+        
 
 

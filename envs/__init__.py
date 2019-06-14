@@ -72,3 +72,9 @@ register(
     id='CartPoleContinuous-v0',
     entry_point='envs.cartpole:CartPoleContinuousEnv',
 )
+
+register(
+    id='ReacherRandomized-v0',
+    entry_point='envs.reacher:ReacherRandomizedEnv',
+    kwargs={'config': 'envs/config/ReacherRandomized/random.json'}
+)

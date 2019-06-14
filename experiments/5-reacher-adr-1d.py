@@ -18,8 +18,8 @@ import psutil
 
 
 class Arguments:
-    randomized_env_id = 'ReacherPyBulletEnv-v0'
-    eval_env_id = 'ReacherPyBulletEnv-v0'
+    randomized_env_id = 'ReacherRandomized-v0'
+    eval_env_id = 'ReacherRandomized-v0'
     log_interval = 10
 
     def __init__(self, seed, sp_gamma, sp_percent):
