@@ -10,7 +10,7 @@ import torch
 from envs import *
 from envs.wrappers import RandomizedEnvWrapper
 from envs.randomized_vecenv import make_vec_envs
-from policies.simple import BobPolicy, AlicePolicy
+from policies.simple import BobPolicy, AlicePolicy, ADRPolicy
 from envs.heuristics.lunar.heuristics import heuristic, uncalibrated
 
 import os
@@ -43,20 +43,20 @@ parser.add_argument('--eval-env-id', type=str,default='ReacherPyBulletEnv-v0')
 N_PROCS = 5
 N_ROLLOUTS = 20
 MAX_TIMESTEPS = 100
-STATE_DIM = 9
+STATE_DIM = 11
 GOAL_DIM = 2
 TAU = 0.01
 
 
-def check_closeness(state, goal):
-    dist =  np.linalg.norm(state - goal)
-    return dist < 0.025
+def check_closeness(distance):
+    return np.linalg.norm(distance) < 0.025
 
 def evaluate_policy(env, policy):
     nepisodes = 0
-    rewards = []
+    standard_rewards = []
 
-    while nepisodes < N_ROLLOUTS:
+    while nepisodes < N_ROLLOUTS // 2:
+        env.randomize([0.6])
         state = env.reset()
         done = False
         ep_reward = 0
@@ -72,25 +72,51 @@ def evaluate_policy(env, policy):
             full_state[:STATE_DIM] = state
             ep_reward += reward           
 
-        rewards.append(ep_reward)
+        standard_rewards.append(ep_reward)
         nepisodes += 1
 
-    return rewards
+    nepisodes = 0
+    randomized_rewards = []
+
+    while nepisodes < N_ROLLOUTS:
+        env.randomize([-1])
+        state = env.reset()
+        done = False
+        ep_reward = 0
+
+        full_state = np.zeros(STATE_DIM * 2)
+        full_state[:STATE_DIM] = state
+
+        while not done:
+            with torch.no_grad():
+                action = policy.select_action(full_state, deterministic=True, save_log_probs=False)
+
+            state, reward, done, _ = env.step(action)
+            full_state[:STATE_DIM] = state
+            ep_reward += reward           
+
+        randomized_rewards.append(ep_reward)
+        nepisodes += 1
+
+    return standard_rewards, randomized_rewards
 
 def experiment(args):
     # args = parser.parse_args()
 
-    model_path = 'saved-models/expt-4-chaser/SPPerc{}/{}'.format(args.sp_percent, args.seed)
+    model_path = 'saved-models/expt-5-adr-1d-randomizedeval/SPPerc{}/{}'.format(args.sp_percent, args.seed)
     device = "cpu" # torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    training_env = gym.make(args.randomized_env_id)
+    rollout_env = gym.make(args.randomized_env_id)
 
     if args.eval_env_id is None:
         args.eval_env_id = args.randomized_env_id
 
-    rollout_env = gym.make(args.randomized_env_id)
+    training_env = gym.make(args.randomized_env_id)
+    training_env = RandomizedEnvWrapper(env=training_env, seed=args.seed)
 
     rollout_env.seed(args.seed)
+    rollout_env = RandomizedEnvWrapper(env=rollout_env, seed=args.seed)
+
     training_env.seed(args.seed)
     torch.manual_seed(args.seed)
 
@@ -107,12 +133,13 @@ def experiment(args):
     print("---------------------------------------\n")
 
     alice_policy = AlicePolicy(state_dim=4)
-    bob_policy = BobPolicy(state_dim=18, action_dim=2)
-    alice_acting_policy = BobPolicy(state_dim=18, action_dim=2)
+    bob_policy = BobPolicy(state_dim=STATE_DIM*2, action_dim=2)
+    alice_acting_policy = BobPolicy(state_dim=STATE_DIM*2, action_dim=2)
+    adr_policy = ADRPolicy(state_dim=4)
 
     alice_acting_policy.load_from_policy(bob_policy)
 
-    total_episodes = 50000
+    total_episodes = 20000
     timesteps = 0
     nepisodes = 0
     nselfplay = 0
@@ -120,15 +147,20 @@ def experiment(args):
     best_reward = -np.inf
 
     learning_curve = []
+    randomized_learning_curve = []
     distances = []
+
+    categorical_tasks = np.linspace(0, 1, 10)
 
     while ntarget < total_episodes:
         if np.random.random() < args.sp_percent:
             # Alice
             training_env.seed(nselfplay)
+            training_env.randomize([0.6])
+
             state = training_env.reset()
             initial_state = np.copy(state)
-            xy = training_env.robot.fingertip.pose().xyz()[:2]
+            xy = training_env.get_fingertip()[:2]
             alice_state = np.concatenate([xy, np.zeros(GOAL_DIM)])
             alice_done = False
             goal_state = None
@@ -145,7 +177,7 @@ def experiment(args):
                 alice_done = env_done or time_alice + 1 == MAX_TIMESTEPS or alice_signal and time_alice >= 1
 
                 if not alice_done: 
-                    alice_state[GOAL_DIM:] = training_env.robot.fingertip.pose().xyz()[:2]
+                    alice_state[GOAL_DIM:] = training_env.get_fingertip()[:2]
                     alice_policy.log(0.)
                     goal_state = state
                     goal_xy = alice_state[GOAL_DIM:]
@@ -153,8 +185,12 @@ def experiment(args):
 
             distances.append(np.linalg.norm(xy -  goal_xy))
 
+            # Get environment
+            randomized_value = adr_policy.select_action(alice_state)
+
             # Bob
             training_env.seed(nselfplay)
+            training_env.randomize([categorical_tasks[randomized_value]])
             state = training_env.reset()
 
             bob_state = np.concatenate([state, goal_state])
@@ -165,7 +201,7 @@ def experiment(args):
                 action = bob_policy.select_action(bob_state)
 
                 state, reward, env_done, _ = training_env.step(action)
-                bob_signal = check_closeness(training_env.robot.fingertip.pose().xyz()[:2], goal_xy)
+                bob_signal = check_closeness(training_env.get_distance())
 
                 bob_done = env_done or bob_signal and time_bob >= 1
 
@@ -178,11 +214,15 @@ def experiment(args):
             reward_bob = -args.sp_gamma * time_bob
 
             alice_policy.log(reward_alice)
+            adr_policy.log(reward_alice)
             bob_policy.log(reward_bob)
 
             nselfplay += 1
             alice_policy.finish_episode(gamma=0.99)
             bob_policy.finish_episode(gamma=0.99)
+
+            if nselfplay % 10 == 0:
+                adr_policy.finish_episode(gamma=0.99)
 
         else:
             state = training_env.reset()
@@ -191,8 +231,8 @@ def experiment(args):
 
             while not done:
                 action = bob_policy.select_action(bob_state)
-
                 state, reward, done, _ = training_env.step(action)
+
                 bob_state[:STATE_DIM] = state
                 bob_policy.log(reward)
                 # SP is "free" (original paper)
@@ -211,12 +251,15 @@ def experiment(args):
                 target_param.data.copy_(TAU * param.data + (1 - TAU) * target_param.data)
 
             if nepisodes % args.log_interval == 0:
-                eval_rewards = evaluate_policy(rollout_env, bob_policy)
+                eval_rewards, randomized_rewards = evaluate_policy(rollout_env, bob_policy)
                 eval_reward = np.mean(eval_rewards)
+                random_reward = np.mean(randomized_rewards)
+
+                randomized_learning_curve.append(random_reward)
                 learning_curve.append(eval_reward)
 
-                torch.save(bob_policy.policy.state_dict(), 
-                    os.path.join('{}/{}.pth'.format(model_path, nepisodes)))
+                # torch.save(bob_policy.policy.state_dict(), 
+                #     os.path.join('{}/{}.pth'.format(model_path, nepisodes)))
 
                 if eval_reward > best_reward: 
                     best_reward = eval_reward                
@@ -228,12 +271,12 @@ def experiment(args):
                     .format(args.seed, args.sp_percent, eval_reward, best_reward, nepisodes, timesteps, nselfplay, ntarget)) 
 
     np.savez(os.path.join('{}/learningcurve.npz'.format(model_path)), 
-        learning_curve=learning_curve, distances=distances)
+        learning_curve=learning_curve, distances=distances, randomized_learning_curve=randomized_learning_curve)
 
 if __name__ == '__main__':
     seeds = [98, 99, 100]
     sp_gammas = [0.001]
-    sp_percents = [0, 0.01, 0.1, 0.25]
+    sp_percents = [0, 0.01, 0.1]
 
     for seed in seeds:
         for sp_gamma in sp_gammas:

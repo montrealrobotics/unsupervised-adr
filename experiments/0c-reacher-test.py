@@ -14,7 +14,8 @@ lengths = np.linspace(0, 1, 10)
 for i in range(10):
     print(lengths[i])
     env.randomize(randomized_values=[lengths[i]])
-    env.reset()
+    st = env.reset()
+    print(st.shape)
     for _ in range(200):
         obs, reward, done, _ = env.step(env.action_space.sample())
         env.render()

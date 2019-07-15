@@ -96,6 +96,57 @@ class BernoulliPolicy(nn.Module):
         value = self.value(x)
         return torch.sigmoid(termination_prob), value
 
+class ADRPolicy:
+    def __init__(self, state_dim=8, action_dim=10):
+        self.policy = CategoricalPolicy(state_dim, action_dim)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-4)
+
+    def select_action(self, state, deterministic=False, save_log_probs=True):
+        state = torch.from_numpy(state).float().unsqueeze(0)
+        probs = self.policy(state)
+        m = Categorical(probs)
+
+        if deterministic:
+            action = m.mode()
+        else:
+            action = m.sample()
+       
+        if save_log_probs:
+            self.policy.saved_log_probs.append(m.log_prob(action))
+
+        return action.cpu().data.numpy()[0]
+
+    def log(self, reward):
+        self.policy.rewards.append(reward)
+
+    def load_from_file(self, file):
+        self.policy.load_state_dict(torch.load(file))
+
+    def load_from_policy(self, original):
+        with torch.no_grad():
+            for param, target_param in zip(self.policy.parameters(), original.policy.parameters()):
+                param.data.copy_(target_param.data)
+                param.requires_grad = False
+
+    def finish_episode(self, gamma):
+        R = 0
+        policy_loss = []
+        rewards = []
+        for r in self.policy.rewards[::-1]:
+            R = r + gamma * R
+            rewards.insert(0, R)
+        rewards = torch.tensor(rewards)
+
+        rewards = (rewards - rewards.mean()) / (rewards.std() + eps)
+        for log_prob, reward in zip(self.policy.saved_log_probs, rewards):
+            policy_loss.append(-log_prob * reward)
+        self.optimizer.zero_grad()
+        policy_loss = torch.cat(policy_loss).sum()
+        policy_loss.backward()
+        self.optimizer.step()
+        del self.policy.rewards[:]
+        del self.policy.saved_log_probs[:]
+
 class BobPolicy:
     def __init__(self, state_dim=8, action_dim=2):
         self.policy = GaussianPolicy(state_dim, action_dim)

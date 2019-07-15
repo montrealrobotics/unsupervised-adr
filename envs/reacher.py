@@ -5,9 +5,11 @@ from gym.envs.mujoco import mujoco_env
 import xml.etree.ElementTree as et
 import mujoco_py
 
+MAX_TIMESTEPS = 100
 
 class ReacherRandomizedEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self, **kwargs):
+        self.timesteps = 0
         utils.EzPickle.__init__(self)
         self.reference_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            'assets/reacher.xml')
@@ -26,13 +28,15 @@ class ReacherRandomizedEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         reward = reward_dist + reward_ctrl
         self.do_simulation(a, self.frame_skip)
         ob = self._get_obs()
-        done = False
+        done = self.timesteps + 1 == MAX_TIMESTEPS
+        self.timesteps += 1
         return ob, reward, done, dict(reward_dist=reward_dist, reward_ctrl=reward_ctrl)
 
     def viewer_setup(self):
         self.viewer.cam.trackbodyid = 0
 
     def reset_model(self):
+        self.timesteps = 0
         qpos = self.np_random.uniform(low=-0.1, high=0.1, size=self.model.nq) + self.init_qpos
         while True:
             self.goal = self.np_random.uniform(low=-.2, high=.2, size=2)
@@ -43,6 +47,12 @@ class ReacherRandomizedEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         qvel[-2:] = 0
         self.set_state(qpos, qvel)
         return self._get_obs()
+
+    def get_fingertip(self):
+        return self.get_body_com("fingertip")
+
+    def get_distance(self):
+        return self.get_body_com("fingertip") - self.get_body_com("target")
 
     def _get_obs(self):
         theta = self.sim.data.qpos.flat[:2]
@@ -70,7 +80,7 @@ class ReacherRandomizedEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.init_qpos = self.data.qpos.ravel().copy()
         self.init_qvel = self.data.qvel.ravel().copy()
         observation, _reward, done, _info = self.step(np.zeros(self.model.nu))
-        assert not done
+        
         if self.viewer:
             self.viewer.update_sim(self.sim)
 
