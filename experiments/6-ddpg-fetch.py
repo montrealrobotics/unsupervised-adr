@@ -12,7 +12,7 @@ def evaluate_policy(policy, eval_episodes=10):
 		obs = env.reset()
 		done = False
 		while not done:
-			action = TD3.select_action(np.array(obs))
+			action = policy.select_action(np.array(obs))
 			obs, reward, done, _ = env.step(action)
 			avg_reward += reward
 
@@ -40,6 +40,10 @@ if __name__ == "__main__":
 	parser.add_argument("--policy_noise", default=0.2, type=float)  # Noise added to target policy during critic update
 	parser.add_argument("--noise_clip", default=0.5, type=float)  # Range to clip target policy noise
 	parser.add_argument("--policy_freq", default=2, type=int)  # Frequency of delayed policy updates
+
+	parser.add_argument("--ngoals", default=4, type=int, help="TODO: Number of goals to add via HER")
+	parser.add_argument("--her-probability", default=0.8, type=int, help="TODO: Number of goals to add via HER")
+
 	args = parser.parse_args()
 
 	file_name = "%s_%s_%s" % (args.policy_name, args.env_name, str(args.seed))
@@ -78,29 +82,28 @@ if __name__ == "__main__":
 		episode = []
 
 		if done:  # Include HER code here
-			new_episode = []
-			for state, new_goal, next_state, action, reward, done in episode:
-				for t in np.random.choice(num_bits, new_goals): # --> make some changes here
-					try:
-						episode[t]
-					except:
-						continue
-					new_goal = episode[t][-2]
-					if np.sum(next_state == new_goal) == num_bits:
-						reward = 0
-					else:
-						reward = -1
-					replay_buffer.add((state, new_goal, next_state, action, reward, done))
-					new_episode.append((state, reward, done, next_state, new_goal))
-
 			if total_timesteps != 0:
+				new_episode = []
+				for state, new_goal, next_state, action, reward, done in episode:
+					if np.random.random() > args.her_probability: continue
+					for t in np.random.choice(len(episode), args.new_goals): # --> make some changes here
+						try:
+							episode[t]
+						except:
+							continue
+
+						state = episode[t][0]
+						new_goal = episode[t][2]
+
+						reward = env.compute_reward(state, new_goal)
+						replay_buffer.add((state, new_goal, next_state, action, reward, done))
+						new_episode.append((state, reward, done, next_state, new_goal))
+
+
 				print("Total T: %d Episode Num: %d Episode T: %d Reward: %f") % (
 				total_timesteps, episode_num, episode_timesteps, episode_reward)
-				if args.policy_name == "TD3":
-					policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau,
+				policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau,
 								 args.policy_noise, args.noise_clip, args.policy_freq)
-				else:
-					policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau)
 
 			# Evaluate episode
 			if timesteps_since_eval >= args.eval_freq:
@@ -121,7 +124,8 @@ if __name__ == "__main__":
 		if total_timesteps < args.start_timesteps:
 			action = env.action_space.sample()
 		else:
-			action = policy.select_action(np.concatenate((obs["observation"], obs["achieved_goal"]), 0))
+			# @Sharath: Be careful with the API!
+			action = policy.select_action(np.concatenate((obs["observation"], obs["desired_goal"]), 0))
 			if args.expl_noise != 0:
 				action = (action + np.random.normal(0, args.expl_noise, size=env.action_space.shape[0])).clip(
 					env.action_space.low, env.action_space.high)
@@ -133,8 +137,8 @@ if __name__ == "__main__":
 
 		# Store data in replay buffer
 
-		episode.append((obs["observation"], new_obs["achieved_goal"], new_obs["observation"], action, reward, done_bool))
-		replay_buffer.add((obs["observation"], new_obs["achieved_goal"], new_obs["observation"], action, reward, done_bool))
+		episode.append((obs["observation"], new_obs["desired_goal"], new_obs["observation"], action, reward, done_bool))
+		replay_buffer.add((obs["observation"], new_obs["desired_goal"], new_obs["observation"], action, reward, done_bool))
 
 		obs = new_obs
 
