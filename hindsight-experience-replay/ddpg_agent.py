@@ -62,6 +62,9 @@ class ddpg_agent:
         train the network
 
         """
+
+        evals = []
+
         # start to collect samples
         for epoch in range(self.args.n_epochs):
             print('Epoch', epoch)
@@ -117,6 +120,8 @@ class ddpg_agent:
             success_rate = self._eval_agent()
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
+                evals.append(success_rate)
+                np.save('evals-Seed{}.npy'.format(self.args.seed), evals)
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std, self.actor_network.state_dict()], \
                             self.model_path + '/model.pt')
 
