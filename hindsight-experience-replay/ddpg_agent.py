@@ -62,6 +62,7 @@ class ddpg_agent:
         """
         # start to collect samples
         for epoch in range(self.args.n_epochs):
+            print('Epoch', epoch)
             for _ in range(self.args.n_cycles):
                 mb_obs, mb_ag, mb_g, mb_actions = [], [], [], []
                 for _ in range(self.args.num_rollouts_per_mpi):
