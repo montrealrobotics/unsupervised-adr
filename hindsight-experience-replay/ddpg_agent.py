@@ -37,7 +37,6 @@ class ddpg_agent:
             self.actor_target_network.cuda()
             self.critic_target_network.cuda()
         # create the optimizer
-        self.hardcoded_controller = MPCController(gym.make("FetchPush-v1"), 10)
         self.actor_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
         self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
         # her sampler
@@ -107,8 +106,6 @@ class ddpg_agent:
                 mb_actions = np.array(mb_actions)
                 # store the episodes
                 self.buffer.store_episode([mb_obs, mb_ag, mb_g, mb_actions])
-                if np.random.random() > self.args.her_probability: continue
-
                 self._update_normalizer([mb_obs, mb_ag, mb_g, mb_actions])
                 for _ in range(self.args.n_batches):
                     # train the network
