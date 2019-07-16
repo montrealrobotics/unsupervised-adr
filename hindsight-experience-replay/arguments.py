@@ -4,7 +4,6 @@ import argparse
 Here are the param for the training
 
 """
-
 def get_args():
     parser = argparse.ArgumentParser()
     # the environment setting
@@ -34,6 +33,7 @@ def get_args():
     parser.add_argument('--demo-length', type=int, default=20, help='the demo length')
     parser.add_argument('--cuda', action='store_true', help='if use gpu do the acceleration')
     parser.add_argument('--num-rollouts-per-mpi', type=int, default=2, help='the rollouts per mpi')
+    parser.add_argument("--her-probability", default=0.8, type=int, help="TODO: Number of goals to add via HER")
 
     args = parser.parse_args()
 
