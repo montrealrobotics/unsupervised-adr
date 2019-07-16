@@ -1,5 +1,6 @@
 import torch
 import os
+import os.path as osp
 from datetime import datetime
 import numpy as np
 from mpi4py import MPI
@@ -48,16 +49,16 @@ class ddpg_agent:
         self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
         # create the dict for store the model
 
-        self.args.save_dir = osp.join(self.args.save_dir, args.seed)
-        self.model_path = osp.join(self.model_path, args.seed)
+        self.args.save_dir = osp.join(self.args.save_dir, str(args.seed))
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             if not os.path.exists(self.args.save_dir):
-                os.mkdir(self.args.save_dir)
+                os.makedirs(self.args.save_dir)
             # path to save the model
             self.model_path = os.path.join(self.args.save_dir, self.args.env_name)
+            # self.model_path = osp.join(self.model_path, str(args.seed))
             if not os.path.exists(self.model_path):
-                os.mkdir(self.model_path)
+                os.makedirs(self.model_path)
 
 
 
