@@ -280,7 +280,7 @@ class BernoulliPolicy2(nn.Module):
     def __init__(self, goal_dim, action_dim):
         super(BernoulliPolicy2, self).__init__()
         self.base = nn.Sequential(
-            nn.Linear(goal_dim, 300),
+            nn.Linear(goal_dim * 2, 300),
             nn.ReLU(),
             nn.Linear(300, 300),
             nn.ReLU(),
