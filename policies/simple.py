@@ -148,10 +148,10 @@ class ADRPolicy:
         del self.policy.saved_log_probs[:]
 
 class BobPolicy:
-    def __init__(self, state_dim=8, action_dim=2):
+    def __init__(self, args, state_dim=8, action_dim=2):
         self.policy = GaussianPolicy(state_dim, action_dim)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-4)
-
+        self.args = args
     def select_action(self, state, deterministic=False, save_log_probs=True):
         state = torch.from_numpy(state).float().unsqueeze(0)
         probs = self.policy(state)
@@ -176,7 +176,7 @@ class BobPolicy:
     def load_from_policy(self, original):
         with torch.no_grad():
             for param, target_param in zip(self.policy.parameters(), original.policy.parameters()):
-                param.data.copy_(target_param.data)
+                param.data.copy_((1 - self.args.polyak) * param.data + self.args.polyak * target_param.data)
                 param.requires_grad = False
     
     def perturb(self, alpha, weight_noise, bias_noise):
@@ -208,9 +208,10 @@ class BobPolicy:
 
 
 class AlicePolicy:
-    def __init__(self, state_dim=8, action_dim=2):
+    def __init__(self, args, state_dim=8, action_dim=1):
         self.policy = BernoulliPolicy(state_dim, action_dim)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=3e-3)
+        self.args = args
 
     def select_action(self, state, deterministic=False, save_log_probs=True):
         state = torch.from_numpy(state).float().unsqueeze(0)
@@ -234,7 +235,7 @@ class AlicePolicy:
     def load_from_policy(self, original):
         with torch.no_grad():
             for param, target_param in zip(self.policy.parameters(), original.policy.parameters()):
-                param.data.copy_(target_param.data)
+                param.data.copy_((1 - self.args.polyak) * param.data + self.args.polyak * target_param.data)
                 param.requires_grad = False
     
     def perturb(self, alpha, weight_noise, bias_noise):
@@ -301,9 +302,10 @@ class BernoulliPolicyFetch(nn.Module):
 
 
 class AlicePolicyFetch:
-    def __init__(self, goal_dim, action_dim=2):
+    def __init__(self, args, goal_dim, action_dim=1):
         self.policy = BernoulliPolicyFetch(goal_dim, action_dim=1)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=3e-3)
+        self.args = args
 
     def select_action(self, state, deterministic=False, save_log_probs=True):
         state = torch.from_numpy(state).float().unsqueeze(0)
@@ -327,7 +329,7 @@ class AlicePolicyFetch:
     def load_from_policy(self, original):
         with torch.no_grad():
             for param, target_param in zip(self.policy.parameters(), original.policy.parameters()):
-                param.data.copy_(target_param.data)
+                param.data.copy_((1 - self.args.polyak) * param.data + self.args.polyak * target_param.data)
                 param.requires_grad = False
 
     def perturb(self, alpha, weight_noise, bias_noise):

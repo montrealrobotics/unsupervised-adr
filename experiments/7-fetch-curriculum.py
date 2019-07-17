@@ -18,13 +18,18 @@ import psutil
 parser = argparse.ArgumentParser(description="Experiments on Fetch")
 parser.add_argument('--env-name', type=str, default='ResidualSlipperyPush-v0')
 parser.add_argument('--seed', type=int, default=-1, metavar='N', help='random seed')
+parser.add_argument('--polyak', type=int, default=0.05, help='Polyak Averaging Coefficient')
+parser.add_argument('--sp-gamma', type=int, default=0.1, help='Self play gamma')
 
 env = gym.make(args.env_name)
 obs = env.reset()
 
 STATE_DIM = obs["observation"].shape[0]
 GOAL_DIM = obs["achieved_goal"].shape[0]
-TAU = 0.01
+
+def check_closeness(state, goal):
+    dist =  np.linalg.norm(state - goal)
+    return dist < 0.025
 
 def experiment(args):
     env.seed(args.seed)
@@ -38,29 +43,71 @@ def experiment(args):
     best_reward = -np.inf
     
     alice_policy = AlicePolicyFetch(goal_dim=GOAL_DIM)
+    alice_action_policy = BobPolicy(goal_state=GOAL_DIM)
+    bob_policy = BobPolicy(goal_state=GOAL_DIM)
+
 
     #Training Loop
     while ntarget < total_episodes:
+
         obs = env.reset()
         goal_state = obs["achieved_goal"]
         alice_state = np.concatenate([goal_state, np.zeros(GOAL_DIM)])
         alice_done = False
         alice_time = 0
         bobs_goal_state = None
+        bob_policy.load_from_policy(alice_action_policy)
         
         #Alice Stopping Policy
         while not alice_done and (alice_time < max_timesteps):
-            action = alice_policy.select_action(alice_state)
-            obs, reward, env_done, _ = env.step(action)
+            action = alice_action_policy.select_action(alice_state)
+            new_obs, reward, env_done, _ = env.step(action)
+            alice_signal = alice_policy.select_action(alice_state)
             
             #Stopping Criteria
-            if action > np.random.random(): alice_done = True 
+            if alice_signal > np.random.random(): alice_done = True
             alice_done = alice_done or env_done or alice_time + 1 == max_timesteps
             if alice_done == False:
-                alice_state[GOAL_DIM:] = obs["achieved_goal"]
+                alice_state[GOAL_DIM:] = new_obs["achieved_goal"]
                 bobs_goal_state = obs["acieved_goal"]
                 alice_time += 1
-        # Bob's policy ...
+                alice_policy.log(0.0)
+
+        # Bob's policy
+        obs = env.reset()
+        state = obs["observation"]
+        bob_state = np.concatenate([state, bobs_goal_state])
+        bob_done = False
+        bob_time = 0
+
+        while not bob_done and alice_time + bob_time < max_timesteps:
+            action = bob_policy.select_action(bob_state)
+            new_obs, reward, env_done, _ = env.step(action)
+
+
+            bob_signal = check_closeness(new_obs["achieved_goal"], bobs_goal_state)
+
+            #criteria for bob done?
+            bob_done = bob_signal
+
+            if bob_done ==False:
+                bob_state[:GOAL_DIM] = new_obs["achieved_goal"]
+                bob_policy.log(0.0)
+                bob_time += 1
+
+        alice_policy.log(args.sp_gamma * max(0, bob_time - alice_time)) #Alice Reward
+        bob_policy.log(-args.sp_gamma * bob_time) #Bob Reward
+
+        alice_policy.finish_episode(gamma=0.99)
+        bob_policy.finish_episode(gamma=0.99)
+
+
+
+
+
+
+
+
 
 
 
