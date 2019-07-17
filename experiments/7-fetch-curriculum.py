@@ -51,12 +51,12 @@ def experiment(args):
         #Alice Stopping Policy
         while not alice_done and (alice_time < max_timesteps):
             action = alice_policy.select_action(alice_state)
-            obs, reward, done, _ = env.step(action)
+            obs, reward, env_done, _ = env.step(action)
             
             #Stopping Criteria
             if action > np.random.random(): alice_done = True 
-            alice_done = alice_done or alice_time + 1 == max_timesteps
-            if alice_done== False:
+            alice_done = alice_done or env_done or alice_time + 1 == max_timesteps
+            if alice_done == False:
                 alice_state[GOAL_DIM:] = obs["achieved_goal"]
                 bobs_goal_state = obs["acieved_goal"]
                 alice_time += 1
