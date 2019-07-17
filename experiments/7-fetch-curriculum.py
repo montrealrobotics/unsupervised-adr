@@ -2,15 +2,12 @@ import argparse
 import gym
 import numpy as np
 from itertools import count
-
 import torch
-
 from envs import *
 from envs.wrappers import RandomizedEnvWrapper
 from envs.randomized_vecenv import make_vec_envs
 from policies.simple import BobPolicy, AlicePolicyFetch
 from envs.heuristics.lunar.heuristics import heuristic, uncalibrated
-
 import os
 import psutil
 
@@ -23,9 +20,12 @@ parser.add_argument('--sp-gamma', type=int, default=0.1, help='Self play gamma')
 
 env = gym.make(args.env_name)
 obs = env.reset()
-
 STATE_DIM = obs["observation"].shape[0]
 GOAL_DIM = obs["achieved_goal"].shape[0]
+
+def soft_update(target, source):
+    for target_param, param in zip(target.parameters(), source.parameters()):
+        target_param.data.copy_((1 - args.polyak) * target_param.data + args.polyak * param.data)
 
 def check_closeness(state, goal):
     dist =  np.linalg.norm(state - goal)
@@ -45,31 +45,29 @@ def experiment(args):
     alice_policy = AlicePolicyFetch(goal_dim=GOAL_DIM)
     alice_action_policy = BobPolicy(goal_state=GOAL_DIM)
     bob_policy = BobPolicy(goal_state=GOAL_DIM)
-
+    alice_acting_policy.load_from_policy(bob_policy)
 
     #Training Loop
     while ntarget < total_episodes:
-
         obs = env.reset()
         goal_state = obs["achieved_goal"]
         alice_state = np.concatenate([goal_state, np.zeros(GOAL_DIM)])
         alice_done = False
         alice_time = 0
         bobs_goal_state = None
-        bob_policy.load_from_policy(alice_action_policy)
         
         #Alice Stopping Policy
         while not alice_done and (alice_time < max_timesteps):
             action = alice_action_policy.select_action(alice_state)
-            new_obs, reward, env_done, _ = env.step(action)
+            obs, reward, env_done, _ = env.step(action)
             alice_signal = alice_policy.select_action(alice_state)
             
             #Stopping Criteria
             if alice_signal > np.random.random(): alice_done = True
             alice_done = alice_done or env_done or alice_time + 1 == max_timesteps
             if alice_done == False:
-                alice_state[GOAL_DIM:] = new_obs["achieved_goal"]
-                bobs_goal_state = obs["acieved_goal"]
+                alice_state[GOAL_DIM:] = obs["achieved_goal"]
+                bobs_goal_state = obs["achieved_goal"]
                 alice_time += 1
                 alice_policy.log(0.0)
 
@@ -82,16 +80,12 @@ def experiment(args):
 
         while not bob_done and alice_time + bob_time < max_timesteps:
             action = bob_policy.select_action(bob_state)
-            new_obs, reward, env_done, _ = env.step(action)
-
-
-            bob_signal = check_closeness(new_obs["achieved_goal"], bobs_goal_state)
-
-            #criteria for bob done?
+            obs, reward, env_done, _ = env.step(action)
+            bob_signal = check_closeness(obs["achieved_goal"], bobs_goal_state)
+         
             bob_done = bob_signal
-
-            if bob_done ==False:
-                bob_state[:GOAL_DIM] = new_obs["achieved_goal"]
+            if bob_done == False:
+                bob_state[:GOAL_DIM] = obs["achieved_goal"]
                 bob_policy.log(0.0)
                 bob_time += 1
 
@@ -100,6 +94,10 @@ def experiment(args):
 
         alice_policy.finish_episode(gamma=0.99)
         bob_policy.finish_episode(gamma=0.99)
+        
+        #soft update
+        # will include soft_update(alice_action_policy, bob_policy) after selfplay percent + if/else training loops
+        ntarget += 1
 
 
 
