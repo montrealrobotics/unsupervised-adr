@@ -39,13 +39,13 @@ class MPCPushEnv(gym.Env):
         self.fetch_env.env._render_callback()
 
         if mode == 'rgb_array':
-            self.fetch_env.env._get_viewer().render()
+            self.fetch_env.env._get_viewer(mode=mode).render()
             width, height = 3350, 1800
-            data = self.fetch_env.env._get_viewer().read_pixels(width, height, depth=False)
+            data = self.fetch_env.env._get_viewer(mode=mode).read_pixels(width, height, depth=False)
             # original image is upside-down, so flip it
             return data[::-1, :, :]
         elif mode == 'human':
-            self.fetch_env.env._get_viewer().render()
+            self.fetch_env.env._get_viewer(mode=mode).render()
 
         return self.fetch_env.render(*args, **kwargs)
 
@@ -62,6 +62,11 @@ class ResidualMPCPushEnv(gym.Env):
         self.observation_space = self.fetch_env.observation_space
 
         self.hardcoded_controller = MPCController(gym.make("FetchPush-v1"), self.action_scale)
+
+
+    def set_friction(self, friction):
+        for i in range(len(self.fetch_env.env.sim.model.geom_friction)):
+            self.fetch_env.env.sim.model.geom_friction[i] = [friction, 5.e-3, 1e-4]
 
     def step(self, residual_action):
         residual_action = 2. * residual_action
@@ -93,13 +98,13 @@ class ResidualMPCPushEnv(gym.Env):
         self.fetch_env.env._render_callback()
 
         if mode == 'rgb_array':
-            self.fetch_env.env._get_viewer().render()
+            self.fetch_env.env._get_viewer(mode=mode).render()
             width, height = 3350, 1800
-            data = self.fetch_env.env._get_viewer().read_pixels(width, height, depth=False)
+            data = self.fetch_env.env._get_viewer(mode=mode).read_pixels(width, height, depth=False)
             # original image is upside-down, so flip it
             return data[::-1, :, :]
         elif mode == 'human':
-            self.fetch_env.env._get_viewer().render()
+            self.fetch_env.env._get_viewer(mode=mode).render()
 
         return self.fetch_env.render(*args, **kwargs)
 

@@ -49,7 +49,7 @@ class ddpg_agent:
         self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
         # create the dict for store the model
 
-        self.args.save_dir = osp.join(self.args.save_dir, str(args.seed))
+        self.args.save_dir = osp.join(self.args.save_dir, str(args.seed), 'friction{}'.format(args.friction))
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             if not os.path.exists(self.args.save_dir):
@@ -126,7 +126,7 @@ class ddpg_agent:
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
                 evals.append(success_rate)
-                np.save('evals.npy', evals)
+                np.save(osp.join(self.model_path, 'evals.npy'), evals)
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std, self.actor_network.state_dict()], \
                             self.model_path + '/model.pt')
 

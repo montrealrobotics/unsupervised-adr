@@ -34,6 +34,10 @@ def launch(args):
     random.seed(args.seed + MPI.COMM_WORLD.Get_rank())
     np.random.seed(args.seed + MPI.COMM_WORLD.Get_rank())
     torch.manual_seed(args.seed + MPI.COMM_WORLD.Get_rank())
+
+    if args.env_name.find('Push') != -1:
+        env.set_friction(args.friction)
+
     if args.cuda:
         torch.cuda.manual_seed(args.seed + MPI.COMM_WORLD.Get_rank())
     # get the environment parameters

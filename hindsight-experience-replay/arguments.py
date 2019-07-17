@@ -7,7 +7,7 @@ Here are the param for the training
 def get_args():
     parser = argparse.ArgumentParser()
     # the environment setting
-    parser.add_argument('--env-name', type=str, default='ResidualMPCPush-v0', help='the environment name')
+    parser.add_argument('--env-name', type=str, default='ResidualSlipperyPush-v0', help='the environment name')
     parser.add_argument('--n-epochs', type=int, default=50, help='the number of epochs to train the agent')
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
     parser.add_argument('--n-batches', type=int, default=40, help='the times to update the network')
@@ -33,7 +33,8 @@ def get_args():
     parser.add_argument('--demo-length', type=int, default=20, help='the demo length')
     parser.add_argument('--cuda', action='store_true', help='if use gpu do the acceleration')
     parser.add_argument('--num-rollouts-per-mpi', type=int, default=2, help='the rollouts per mpi')
-    parser.add_argument("--her-probability", default=0.8, type=int, help="TODO: Number of goals to add via HER")
+
+    parser.add_argument('--friction', type=float, default=0.18, help='friction parameter to set')
 
     args = parser.parse_args()
 

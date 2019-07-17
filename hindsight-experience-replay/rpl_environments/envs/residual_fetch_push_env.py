@@ -16,12 +16,18 @@ class ResidualSlipperyPushEnv(gym.Env):
         self.fetch_env = gym.make("FetchPush-v1")
 
         for i in range(len(self.fetch_env.env.sim.model.geom_friction)):
-            self.fetch_env.env.sim.model.geom_friction[i] = [18e-2, 5.e-3, 1e-4]
+            self.fetch_env.env.sim.model.geom_friction[i] = [.18, 5.e-3, 1e-4]
+            # low = 0.025
+            # self.fetch_env.env.sim.model.geom_friction[i] = [.015, 5.e-3, 1e-4]
 
         self.metadata = self.fetch_env.metadata
         self.hardcoded_controller = None
         self.action_space = self.fetch_env.action_space
         self.observation_space = self.fetch_env.observation_space
+
+    def set_friction(self, friction):
+        for i in range(len(self.fetch_env.env.sim.model.geom_friction)):
+            self.fetch_env.env.sim.model.geom_friction[i] = [friction, 5.e-3, 1e-4]
 
     def step(self, residual_action):
         residual_action = 2. * residual_action
@@ -45,13 +51,13 @@ class ResidualSlipperyPushEnv(gym.Env):
         # See https://github.com/openai/gym/issues/1081
         self.fetch_env.env._render_callback()
         if mode == 'rgb_array':
-            self.fetch_env.env._get_viewer().render()
+            self.fetch_env.env._get_viewer(mode=mode).render()
             width, height = 3350, 1800
-            data = self.fetch_env.env._get_viewer().read_pixels(width, height, depth=False)
+            data = self.fetch_env.env._get_viewer(mode=mode).read_pixels(width, height, depth=False)
             # original image is upside-down, so flip it
             return data[::-1, :, :]
         elif mode == 'human':
-            self.fetch_env.env._get_viewer().render()
+            self.fetch_env.env._get_viewer(mode=mode).render()
 
         return self.fetch_env.render(*args, **kwargs)
 
@@ -84,13 +90,13 @@ class SlipperyPushEnv(gym.Env):
         # See https://github.com/openai/gym/issues/1081
         self.fetch_env.env._render_callback()
         if mode == 'rgb_array':
-            self.fetch_env.env._get_viewer().render()
+            self.fetch_env.env._get_viewer(mode=mode).render()
             width, height = 3350, 1800
-            data = self.fetch_env.env._get_viewer().read_pixels(width, height, depth=False)
+            data = self.fetch_env.env._get_viewer(mode=mode).read_pixels(width, height, depth=False)
             # original image is upside-down, so flip it
             return data[::-1, :, :]
         elif mode == 'human':
-            self.fetch_env.env._get_viewer().render()
+            self.fetch_env.env._get_viewer(mode=mode).render()
 
         return self.fetch_env.render(*args, **kwargs)
 
