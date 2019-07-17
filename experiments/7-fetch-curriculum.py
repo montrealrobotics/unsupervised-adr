@@ -55,7 +55,7 @@ def experiment(args):
             
             #Stopping Criteria
             if action > np.random.random(): alice_done = True 
-            alice_done = done or alice_time + 1 == max_timesteps
+            alice_done = alice_done or alice_time + 1 == max_timesteps
             if alice_done== False:
                 alice_state[GOAL_DIM:] = obs["achieved_goal"]
                 bobs_goal_state = obs["acieved_goal"]
