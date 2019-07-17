@@ -276,9 +276,9 @@ class AlicePolicy:
         self.policy.saved_log_probs = []
         self.policy.values = []
 
-class BernoulliPolicy2(nn.Module):
+class BernoulliPolicyFetch(nn.Module):
     def __init__(self, goal_dim, action_dim):
-        super(BernoulliPolicy2, self).__init__()
+        super(BernoulliPolicyFetch, self).__init__()
         self.base = nn.Sequential(
             nn.Linear(goal_dim * 2, 300),
             nn.ReLU(),
