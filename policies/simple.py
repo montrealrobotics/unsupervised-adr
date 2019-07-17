@@ -275,3 +275,26 @@ class AlicePolicy:
         self.policy.rewards = []
         self.policy.saved_log_probs = []
         self.policy.values = []
+
+class BernoulliPolicyFetch(nn.Module):
+    def __init__(self, goal_dim, action_dim):
+        super(BernoulliPolicyFetch, self).__init__()
+        self.base = nn.Sequential(
+            nn.Linear(goal_dim * 2, 300),
+            nn.ReLU(),
+            nn.Linear(300, 300),
+            nn.ReLU(),
+        )
+
+        self.out = nn.Linear(300, 1)
+        self.value = nn.Linear(300, 1)
+
+        self.saved_log_probs = []
+        self.rewards = []
+        self.values = []
+
+    def forward(self, x):
+        x = self.base(x)
+        termination_prob = self.out(x)
+        value = self.value(x)
+        return torch.sigmoid(termination_prob), value
