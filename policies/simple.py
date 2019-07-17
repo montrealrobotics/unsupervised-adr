@@ -277,7 +277,7 @@ class AlicePolicy:
         self.policy.values = []
 
 class BernoulliPolicyFetch(nn.Module):
-    def __init__(self, goal_dim, action_dim = 1):
+    def __init__(self, goal_dim, action_dim=1):
         super(BernoulliPolicyFetch, self).__init__()
         self.base = nn.Sequential(
             nn.Linear(goal_dim * 2, 300),
