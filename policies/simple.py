@@ -302,7 +302,7 @@ class BernoulliPolicyFetch(nn.Module):
 
 class AlicePolicyFetch:
     def __init__(self, goal_dim, action_dim=2):
-        self.policy = BernoulliPolicyFetch(goal_dim, action_dim = 1)
+        self.policy = BernoulliPolicyFetch(goal_dim, action_dim=1)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=3e-3)
 
     def select_action(self, state, deterministic=False, save_log_probs=True):
