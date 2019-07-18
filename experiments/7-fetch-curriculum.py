@@ -84,7 +84,7 @@ def experiment(args):
             bob_signal = check_closeness(obs["achieved_goal"], bobs_goal_state)
          
             bob_done = bob_signal
-            if bob_done == False:
+            if not bob_done:
                 bob_state[:GOAL_DIM] = obs["achieved_goal"]
                 bob_policy.log(0.0)
                 bob_time += 1
@@ -98,20 +98,3 @@ def experiment(args):
         #soft update
         # will include soft_update(alice_action_policy, bob_policy) after selfplay percent + if/else training loops
         ntarget += 1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
