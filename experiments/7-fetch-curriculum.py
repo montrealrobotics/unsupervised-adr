@@ -21,12 +21,11 @@ env = gym.make(args.env_name)
 obs = env.reset()
 STATE_DIM = obs["observation"].shape[0]
 GOAL_DIM = obs["achieved_goal"].shape[0]
-TAU = 0.01
 
 
 def soft_update(target, source):
-    for target_param, param in zip(target.parameters(), source.parameters()):
-        target_param.data.copy_((1 - args.polyak) * target_param.data + args.polyak * param.data)
+    for target_param, param in zip(target.policy.parameters(), source.policy.parameters()):
+        target_param.data.copy_((1 - args.sp_percent) * target_param.data + args.sp_percent * param.data)
 
 
 def check_closeness(state, goal):
@@ -86,8 +85,8 @@ def experiment(args):
                 action = bob_policy.select_action(bob_state)
                 obs, reward, env_done, _ = env.step(action)
                 bob_signal = check_closeness(obs["achieved_goal"], bobs_goal_state)
-
-                bob_done = bob_signal
+                bob_done = env_done or bob_signal
+                
                 if not bob_done:
                     bob_state[:GOAL_DIM] = obs["achieved_goal"]
                     bob_policy.log(0.0)
@@ -118,6 +117,5 @@ def experiment(args):
             nepisodes += 1
 
             # Soft-Update
-            for param, target_param in zip(bob_policy.policy.parameters(), alice_acting_policy.policy.parameters()):
-                target_param.data.copy_(TAU * param.data + (1 - TAU) * target_param.data)
+            soft_update(alice_action_policy, bob_policy)
 
