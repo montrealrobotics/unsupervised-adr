@@ -110,11 +110,9 @@ def experiment(args):
                 bob_policy.log(reward)
                 timesteps += 1
 
-            ntarget += 1
-
             bob_policy.finish_episode(gamma=0.99)
-
             nepisodes += 1
+            ntarget += 1
 
             # Soft-Update
             soft_update(alice_action_policy, bob_policy)
