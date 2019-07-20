@@ -1,9 +1,12 @@
+import os
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Categorical, Bernoulli
+from mpi4py import MPI
+
 
 eps = np.finfo(np.float32).eps.item()
 
@@ -152,6 +155,8 @@ class BobPolicy:
         self.policy = GaussianPolicy(state_dim, action_dim)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-4)
         self.args = args
+        self.comm = setup_mpi(self.policy)
+
     def select_action(self, state, deterministic=False, save_log_probs=True):
         state = torch.from_numpy(state).float().unsqueeze(0)
         probs = self.policy(state)
@@ -202,6 +207,7 @@ class BobPolicy:
         self.optimizer.zero_grad()
         policy_loss = torch.cat(policy_loss).sum()
         policy_loss.backward()
+        sync_grads(self.comm, self.policy)
         self.optimizer.step()
         del self.policy.rewards[:]
         del self.policy.saved_log_probs[:]
@@ -305,6 +311,7 @@ class AlicePolicyFetch:
     def __init__(self, args, goal_dim, action_dim=1):
         self.policy = BernoulliPolicyFetch(goal_dim, action_dim=1)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=3e-3)
+        self.comm = setup_mpi(self.policy)
         self.args = args
 
     def select_action(self, state, deterministic=False, save_log_probs=True):
@@ -365,8 +372,41 @@ class AlicePolicyFetch:
 
         self.optimizer.zero_grad()
         loss.backward()
+        sync_grads(self.comm, self.policy)
         self.optimizer.step()
 
         self.policy.rewards = []
         self.policy.saved_log_probs = []
         self.policy.values = []
+
+
+def setup_mpi(agent):
+  os.environ['OMP_NUM_THREADS'] = '1'
+  os.environ['MKL_NUM_THREADS'] = '1'
+  comm = MPI.COMM_WORLD
+  param_vec = params_to_vec(agent, mode='params')
+  comm.Bcast(param_vec, root=0)
+  vec_to_params(param_vec, agent, mode='params')
+  return comm
+
+
+def params_to_vec(network, mode):
+  attr = 'data' if mode == 'params' else 'grad'
+  return np.concatenate([getattr(param, attr).detach().view(-1).numpy() for param in network.parameters()])
+
+
+# Copies a numpy vector of parameters/gradients into a network
+def vec_to_params(vec, network, mode):
+  attr = 'data' if mode == 'params' else 'grad'
+  param_pointer = 0
+  for param in network.parameters():
+    getattr(param, attr).copy_(torch.from_numpy(vec[param_pointer:param_pointer + param.data.numel()]).view_as(param.data))
+    param_pointer += param.data.numel()
+
+
+# Synchronises a network's gradients across processes
+def sync_grads(comm, network):
+  grad_vec_send = params_to_vec(network, mode='grads')
+  grad_vec_recv = np.zeros_like(grad_vec_send)
+  comm.Allreduce(grad_vec_send, grad_vec_recv, op=MPI.SUM)
+  vec_to_params(grad_vec_recv / comm.Get_size(), network, mode='grads')
