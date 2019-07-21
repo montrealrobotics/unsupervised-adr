@@ -1,14 +1,7 @@
 import argparse
 import gym
 import numpy as np
-# from envs import *
-# from envs.wrappers import RandomizedEnvWrapper
-# from envs.randomized_vecenv import make_vec_envs
 from policies.simple import BobPolicy, AlicePolicyFetch
-# from envs.heuristics.lunar.heuristics import heuristic, uncalibrated
-# import os
-# import psutil
-
 
 parser = argparse.ArgumentParser(description="Experiments on Fetch")
 parser.add_argument('--env-name', type=str, default='FetchPush-v1')
