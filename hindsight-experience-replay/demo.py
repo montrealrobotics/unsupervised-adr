@@ -21,8 +21,9 @@ if __name__ == '__main__':
     args = get_args()
     # load the model param
     args.save_dir = osp.join(args.save_dir, str(args.seed))
-    model_path = osp.join(args.save_dir, args.env_name, 'model.pt')
-
+    # model_path = osp.join(args.save_dir, 'friction{}'.format(args.friction), args.env_name, 'model.pt')
+    model_path = osp.join(args.save_dir, 'friction{}'.format(args.friction), args.env_name, 'model.pt')
+    print('Loading: {}'.format(model_path))
     o_mean, o_std, g_mean, g_std, model = torch.load(model_path, map_location=lambda storage, loc: storage)
     # create the environment
     env = gym.make(args.env_name)
@@ -63,5 +64,5 @@ if __name__ == '__main__':
 
         evals.append((friction, friction_evals))
 
-    np.save(osp.join(args.save_dir, '{}friction_generalization.npy'.format(args.env_name)), evals)
+    np.save(osp.join(args.save_dir, 'friction{}'.format(args.friction), '{}'.format(args.env_name), 'friction_generalization.npy'), evals)
 

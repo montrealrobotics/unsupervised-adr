@@ -6,7 +6,7 @@ from policies.simple import BobPolicy, AlicePolicyFetch
 parser = argparse.ArgumentParser(description="Experiments on Fetch")
 parser.add_argument('--env-name', type=str, default='FetchPush-v1')
 parser.add_argument('--seed', type=int, default=1, metavar='N', help='random seed')
-parser.add_argument('--polyak', type=int, default=0.05, help='Polyak Averaging Coefficient')
+parser.add_argument('--polyak', type=int, default=0.1, help='Polyak Averaging Coefficient')
 parser.add_argument('--sp-gamma', type=int, default=0.1, help='Self play gamma')
 parser.add_argument('--sp-percent', type=int, default=0.1, help='Self Play Percentage')
 args = parser.parse_args()
@@ -20,7 +20,7 @@ print(f'Action space : {env.action_space.shape[0]}')
 
 def soft_update(target, source):
     for target_param, param in zip(target.policy.parameters(), source.policy.parameters()):
-        target_param.data.copy_((1 - args.sp_percent) * target_param.data + args.sp_percent * param.data)
+        target_param.data.copy_((1 - args.polyak) * target_param.data + args.polyak * param.data)
 
 
 def check_closeness(state, goal):
@@ -32,7 +32,7 @@ def experiment(args):
     env.seed(args.seed)
 
     max_timesteps = 100
-    total_episodes = 50000
+    total_episodes = 10000
     timesteps = 0
     nepisodes = 0
     nselfplay = 0
