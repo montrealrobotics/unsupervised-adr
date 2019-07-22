@@ -9,13 +9,14 @@ class replay_buffer:
     def __init__(self, env_params, buffer_size, sample_func):
         self.env_params = env_params
         self.T = env_params['max_timesteps']
+        print(self.T)
         self.size = buffer_size // self.T
         # memory management
         self.current_size = 0
         self.n_transitions_stored = 0
         self.sample_func = sample_func
         # create the buffer to store info
-        self.buffers = {'obs': np.empty([self.size, self.T + 1, self.env_params['obs']]),
+        self.buffers = {'obs': np.empty([self.size, self.T + 1, self.env_params['goal']*2]),
                         'ag': np.empty([self.size, self.T + 1, self.env_params['goal']]),
                         'g': np.empty([self.size, self.T, self.env_params['goal']]),
                         'actions': np.empty([self.size, self.T, self.env_params['action']]),
@@ -29,6 +30,7 @@ class replay_buffer:
         batch_size = mb_obs.shape[0]
         with self.lock:
             idxs = self._get_storage_idx(inc=batch_size)
+            print()
             # store the informations
             self.buffers['obs'][idxs] = mb_obs
             self.buffers['ag'][idxs] = mb_ag

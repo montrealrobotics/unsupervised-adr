@@ -9,6 +9,9 @@ from utils import sync_networks, sync_grads
 from replay_buffer import replay_buffer
 from normalizer import normalizer
 from her import her_sampler
+from policies.simple import AlicePolicyFetch
+
+
 
 """
 ddpg with HER (MPI-version)
@@ -22,6 +25,7 @@ class ddpg_agent:
         # create the network
         self.actor_network = actor(env_params)
         self.critic_network = critic(env_params)
+        self.alice_policy = AlicePolicyFetch(self.args, goal_dim=env_params["goal"]*2, action_dim=1)
         # sync the networks across the cpus
         sync_networks(self.actor_network)
         sync_networks(self.critic_network)
@@ -84,24 +88,83 @@ class ddpg_agent:
                     ag = observation['achieved_goal']
                     g = observation['desired_goal']
                     # start to collect samples
-                    for t in range(self.env_params['max_timesteps']):
-                        with torch.no_grad():
-                            input_tensor = self._preproc_inputs(obs, g)
-                            pi = self.actor_network(input_tensor)
-                            action = self._select_actions(pi)
-                        # feed the actions into the environment
-                        observation_new, _, _, info = self.env.step(action)
-                        obs_new = observation_new['observation']
-                        ag_new = observation_new['achieved_goal']
-                        # append rollouts
-                        ep_obs.append(obs.copy())
-                        ep_ag.append(ag.copy())
-                        ep_g.append(g.copy())
-                        ep_actions.append(action.copy())
-                        # re-assign the observation
-                        obs = obs_new
-                        ag = ag_new
-                    ep_obs.append(obs.copy())
+                    alice_done = False
+                    alice_time = 0
+                    goal_state = ag
+                    alice_state = np.concatenate([goal_state, np.zeros(self.env_params["goal"])])
+                    if np.random.random() < self.args.sp_percent:
+                        print("Self Play")
+                        # Alice Stopping Policy
+                        while not alice_done and (alice_time < self.env_params['max_timesteps']):
+                            with torch.no_grad():
+                                input_tensor = torch.FloatTensor(alice_state)
+                                pi = self.actor_target_network(input_tensor)
+                                action = self._select_actions(pi)
+                            obs, reward, env_done, _ = self.env.step(action)
+                            alice_signal = self.alice_policy.select_action(alice_state)
+
+                            # Stopping Criteria
+                            if alice_signal > np.random.random(): alice_done = True
+                            alice_done = env_done or alice_time + 1 == self.env_params['max_timesteps'] or alice_signal and alice_time >= 1
+                            if not alice_done:
+                                alice_state[self.env_params["goal"]:] = obs["achieved_goal"]
+                                bobs_goal_state = obs["achieved_goal"]
+                                alice_time += 1
+                                self.alice_policy.log(0.0)
+
+                        # Bob's policy
+                        obs = self.env.reset()
+                        state = obs["achieved_goal"]
+                        bob_state = np.concatenate([state, bobs_goal_state])
+                        bob_done = False
+                        bob_time = 0
+
+                        while not bob_done and alice_time + bob_time < self.env_params['max_timesteps']:
+                            with torch.no_grad():
+                                input_tensor = torch.FloatTensor(bob_state)
+                                pi = self.actor_network(input_tensor)
+                                action = self._select_actions(pi)
+                            obs, reward, env_done, _ = self.env.step(action)
+                            bob_signal = self._check_closeness(obs["achieved_goal"], bobs_goal_state)
+                            bob_done = env_done or bob_signal
+
+                            if not bob_done:
+                                bob_state[:self.env_params["goal"]] = obs["achieved_goal"]
+                                bob_time += 1
+                                ep_obs.append(bob_state.copy())
+                                ep_ag.append(obs["achieved_goal"].copy())
+                                ep_g.append(obs["desired_goal"].copy())
+                                ep_actions.append(action.copy())
+                                # re-assign the observation
+                                # obs = obs_new
+                                # ag = ag_new
+                        self.alice_policy.finish_episode(gamma=0.99)
+                        # soft update the alice's acting policy
+                        self._soft_update_target_network(self.actor_target_network, self.actor_network)
+                        self._soft_update_target_network(self.critic_target_network, self.critic_network)
+                    else:
+                        bob_state = np.concatenate([observation["achieved_goal"], np.zeros(self.env_params["goal"])])
+                        done = False
+                        while not done:
+                            with torch.no_grad():
+                                input_tensor = torch.FloatTensor(bob_state)
+                                pi = self.actor_network(input_tensor)
+                                action = self._select_actions(pi)
+                            # feed the actions into the environment
+                            state, reward, done, _ = self.env.step(action)
+                            bob_state[:self.env_params["goal"]] = state["achieved_goal"]
+                            observation_new, _, _, info = self.env.step(action)
+                            obs_new = observation_new['observation']
+                            ag_new = observation_new['achieved_goal']
+                            # append rollouts
+                            ep_obs.append(bob_state.copy())
+                            ep_ag.append(ag.copy())
+                            ep_g.append(g.copy())
+                            ep_actions.append(action.copy())
+                            # re-assign the observation
+                            obs = obs_new
+                            ag = ag_new
+                    ep_obs.append(bob_state.copy())
                     ep_ag.append(ag.copy())
                     mb_obs.append(ep_obs)
                     mb_ag.append(ep_ag)
@@ -109,6 +172,7 @@ class ddpg_agent:
                     mb_actions.append(ep_actions)
                 # convert them into arrays
                 mb_obs = np.array(mb_obs)
+                print(mb_obs.shape)
                 mb_ag = np.array(mb_ag)
                 mb_g = np.array(mb_g)
                 mb_actions = np.array(mb_actions)
@@ -186,10 +250,14 @@ class ddpg_agent:
         g = np.clip(g, -self.args.clip_obs, self.args.clip_obs)
         return o, g
 
+    def _check_closeness(self, state, goal):
+        dist = np.linalg.norm(state - goal)
+        return dist < 0.025
+
     # soft update
     def _soft_update_target_network(self, target, source):
         for target_param, param in zip(target.parameters(), source.parameters()):
-            target_param.data.copy_((1 - self.args.polyak) * param.data + self.args.polyak * target_param.data)
+            target_param.data.copy_((1 - self.args.sp_polyak) * param.data + self.args.sp_polyak * target_param.data)
 
     # update the network
     def _update_network(self):
