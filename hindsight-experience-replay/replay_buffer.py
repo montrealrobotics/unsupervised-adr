@@ -1,5 +1,7 @@
 import threading
 import numpy as np
+from collections import deque
+import random
 
 """
 the replay buffer here is basically from the openai baselines code
@@ -16,7 +18,7 @@ class replay_buffer:
         self.n_transitions_stored = 0
         self.sample_func = sample_func
         # create the buffer to store info
-        self.buffers = {'obs': np.empty([self.size, self.T + 1, self.env_params['goal']*2]),
+        self.buffers = {'obs': np.empty([self.size, self.T + 1, self.env_params['obs']]),
                         'ag': np.empty([self.size, self.T + 1, self.env_params['goal']]),
                         'g': np.empty([self.size, self.T, self.env_params['goal']]),
                         'actions': np.empty([self.size, self.T, self.env_params['action']]),
@@ -65,3 +67,20 @@ class replay_buffer:
         if inc == 1:
             idx = idx[0]
         return idx
+
+
+class ReplayBufferSelfPlay(object):
+    def __init__(self, capacity):
+        self.buffer = deque(maxlen=capacity)
+
+    def push(self, obs, ag, g, actions):
+        obs = np.expand_dims(obs, 0)
+        self.buffer.append((obs, ag, g, actions))
+
+    def sample(self, batch_size):
+        print(len(self.buffer[0]))
+        obs, ag, g, actions = zip(*random.sample(self.buffer[0], batch_size))
+        return (np.concatenate(obs), ag, g, actions)
+
+    def __len__(self):
+        return len(self.buffer)

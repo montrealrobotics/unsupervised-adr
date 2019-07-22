@@ -13,10 +13,7 @@ class actor(nn.Module):
         super(actor, self).__init__()
         self.self_play = True
         self.max_action = env_params['action_max']
-        if self.self_play:
-            self.fc1 = nn.Linear(env_params['goal']*2, 256)
-        else:
-            self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'], 256)
+        self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'], 256)
         self.fc2 = nn.Linear(256, 256)
         self.fc3 = nn.Linear(256, 256)
         self.action_out = nn.Linear(256, env_params['action'])
@@ -34,10 +31,7 @@ class critic(nn.Module):
         super(critic, self).__init__()
         self.self_play = True
         self.max_action = env_params['action_max']
-        if self.self_play:
-            self.fc1 = nn.Linear(env_params['goal']*2 + env_params['action'], 256)
-        else:
-            self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'] + env_params['action'], 256)
+        self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'] + env_params['action'], 256)
         self.fc2 = nn.Linear(256, 256)
         self.fc3 = nn.Linear(256, 256)
         self.q_out = nn.Linear(256, 1)
