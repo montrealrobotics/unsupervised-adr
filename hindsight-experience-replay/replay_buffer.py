@@ -78,8 +78,7 @@ class ReplayBufferSelfPlay(object):
         self.buffer.append((obs, ag, g, actions))
 
     def sample(self, batch_size):
-        print(len(self.buffer[0]))
-        obs, ag, g, actions = zip(*random.sample(self.buffer[0], batch_size))
+        obs, ag, g, actions = zip(*random.sample(self.buffer, batch_size))
         return (np.concatenate(obs), ag, g, actions)
 
     def __len__(self):
