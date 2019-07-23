@@ -84,15 +84,15 @@ class ddpg_agent:
                     # reset the rollouts
                     ep_obs, ep_ag, ep_g, ep_actions = [], [], [], []
                     # start to collect samples
-                    alice_done = False
-                    alice_time = 0
                     if np.random.random() < self.args.sp_percent:
-                        goal_state = ag
-                        alice_state = np.concatenate([goal_state, np.zeros(self.env_params["goal"])])
+                        alice_done = False
+                        alice_time = 0    
                         # reset the environment
                         obs_alice = self.env.reset()
                         ag = obs_alice['achieved_goal']
                         g = obs_alice['desired_goal']
+                        goal_state = ag
+                        alice_state = np.concatenate([goal_state, np.zeros(self.env_params["goal"])])                        
                         # Alice Stopping Policy
                         while not alice_done and (alice_time < self.env_params['max_timesteps']):
                             with torch.no_grad():
@@ -140,8 +140,6 @@ class ddpg_agent:
                                 # re-assign the observation
                                 obs = obs_new
                                 ag = ag_new
-
-                        # soft update the alice's acting policy
                     else:
                         observation = self.env.reset()
                         ag = observation['achieved_goal']
