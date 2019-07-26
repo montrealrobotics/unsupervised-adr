@@ -9,7 +9,7 @@ from utils import sync_networks, sync_grads
 from replay_buffer import replay_buffer, ReplayBufferSelfPlay
 from normalizer import normalizer
 from her import her_sampler
-from policies.simple import AlicePolicyFetch
+from models import AlicePolicyFetch
 
 """
 ddpg with HER (MPI-version)
@@ -53,7 +53,7 @@ class ddpg_agent:
         self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
         # create the dict for store the model
 
-        self.args.save_dir = osp.join(self.args.save_dir, str(args.seed), 'friction{}'.format(args.friction))
+        self.args.save_dir = osp.join(self.args.save_dir, 'sp{}polyak{}'.format(args.sp_percent, args.polyak), str(args.seed))
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             if not os.path.exists(self.args.save_dir):
@@ -73,6 +73,8 @@ class ddpg_agent:
         # start to collect samples
         for epoch in range(self.args.n_epochs):
             print('Epoch', epoch)
+            alice_goals = []
+
             for _ in range(self.args.n_cycles):
                 mb_obs, mb_ag, mb_g, mb_actions, mb_done = [], [], [], [], []
                 for _ in range(self.args.num_rollouts_per_mpi):
@@ -116,6 +118,10 @@ class ddpg_agent:
                         observation = self.env.reset()
                         obs = observation['observation']
                         ag = observation['achieved_goal']
+                        
+                        if MPI.COMM_WORLD.Get_rank() == 0:
+                            alice_goals.append(bobs_goal_state)
+                        
                         bob_state = np.concatenate([obs, bobs_goal_state])
                         bob_done = False
                         bob_time = 0
@@ -201,6 +207,7 @@ class ddpg_agent:
                 print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
                 evals.append(success_rate)
                 np.save(osp.join(self.model_path, 'evals.npy'), evals)
+                np.save(osp.join(self.model_path, 'alice_goals_Ep{}.npy'.format(epoch)), alice_goals)
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
                             self.actor_network.state_dict()], self.model_path + '/model.pt')
     # pre_process the inputs
