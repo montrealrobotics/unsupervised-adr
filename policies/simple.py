@@ -238,7 +238,7 @@ class AlicePolicy:
     def load_from_file(self, file):
         self.policy.load_state_dict(torch.load(file))
 
-   def load_from_policy(self, original):
+    def load_from_policy(self, original):
         with torch.no_grad():
             for param, target_param in zip(self.policy.parameters(), original.policy.parameters()):
                 param.data.copy_(target_param.data)

@@ -11,6 +11,7 @@ the input x in both networks should be [o, g], where o is the observation and g 
 class actor(nn.Module):
     def __init__(self, env_params):
         super(actor, self).__init__()
+        self.self_play = True
         self.max_action = env_params['action_max']
         self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'], 256)
         self.fc2 = nn.Linear(256, 256)
@@ -28,6 +29,7 @@ class actor(nn.Module):
 class critic(nn.Module):
     def __init__(self, env_params):
         super(critic, self).__init__()
+        self.self_play = True
         self.max_action = env_params['action_max']
         self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'] + env_params['action'], 256)
         self.fc2 = nn.Linear(256, 256)
