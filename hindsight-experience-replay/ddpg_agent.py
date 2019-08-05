@@ -104,8 +104,7 @@ class ddpg_agent:
                     # reset the environment
                     self.env.seed(rank + epoch * cycle + i + self.args.seed)
                     # TODO: Fix with sharath
-                    friction_multiplier = np.clip(env_settings[svpg_index][rank], 0.1, 0.9)
-                    self.env.set_friction(friction_multiplier)
+                    
                     observation = self.env.reset()
                     obs = observation['observation']
                     ag = observation['achieved_goal']
@@ -113,6 +112,8 @@ class ddpg_agent:
                     # start to collect samples
 
                     if is_sp_cycle:
+                        self.env.set_friction(1.0)
+                        
                         alice_done = False
                         alice_time = 0
                         alice_state = np.concatenate([ag, np.zeros(self.env_params["goal"])])
@@ -140,12 +141,14 @@ class ddpg_agent:
                                 ag = ag_new
 
                         # Bob's policy
+                        friction_multiplier = np.clip(env_settings[svpg_index][rank], 0.1, 0.9)
+                        self.env.set_friction(friction_multiplier)
                         self.env.seed(rank + epoch * cycle + i + self.args.seed)
                         observation = self.env.reset()
                         obs = observation['observation']
                         ag = observation['achieved_goal']
                         
-                        if MPI.COMM_WORLD.Get_rank() == 0:
+                        if rank == 0:
                             alice_goals.append(bobs_goal_state)
                         
                         bob_state = np.concatenate([obs, bobs_goal_state])
@@ -199,6 +202,15 @@ class ddpg_agent:
                             
                             if rank == 0:
                                 adr._train_particles(all_rewards)
+
+                            if rank == 0:
+                                wait_hack = np.random.random(2)
+                            else:
+                                wait_hack = np.empty(2)
+
+                            # Trick to sync
+                            comm.Bcast(wait_hack, root=0)
+                            
 
                     else:
                         for t in range(self.env_params['max_timesteps']):
