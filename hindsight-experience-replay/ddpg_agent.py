@@ -103,7 +103,9 @@ class ddpg_agent:
                     ep_obs, ep_ag, ep_g, ep_actions, ep_done = [], [], [], [], []
                     # reset the environment
                     self.env.seed(rank + epoch * cycle + i + self.args.seed)
-                    self.env.set_friction(env_settings[svpg_index][rank])
+                    # TODO: Fix with sharath
+                    friction_multiplier = np.clip(env_settings[svpg_index][rank], 0.1, 0.9)
+                    self.env.set_friction(friction_multiplier)
                     observation = self.env.reset()
                     obs = observation['observation']
                     ag = observation['achieved_goal']
