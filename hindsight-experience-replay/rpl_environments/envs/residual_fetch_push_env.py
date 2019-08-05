@@ -24,10 +24,14 @@ class ResidualSlipperyPushEnv(gym.Env):
         self.hardcoded_controller = None
         self.action_space = self.fetch_env.action_space
         self.observation_space = self.fetch_env.observation_space
+        self.friction_initial = 0.18
 
-    def set_friction(self, friction):
+    def set_friction(self, friction_multiplier):
         for i in range(len(self.fetch_env.env.sim.model.geom_friction)):
-            self.fetch_env.env.sim.model.geom_friction[i] = [friction, 5.e-3, 1e-4]
+            self.fetch_env.env.sim.model.geom_friction[i] = [
+                # TODO: Fix w sharath
+                self.friction_initial * friction_multiplier * 0.5, 5.e-3, 1e-4
+            ]
 
     def step(self, residual_action):
         residual_action = 2. * residual_action

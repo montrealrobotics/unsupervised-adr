@@ -64,7 +64,7 @@ class ddpg_agent:
             if not os.path.exists(self.model_path):
                 os.makedirs(self.model_path)
 
-    def learn(self, adr):
+    def learn(self, adr, svpg_rollout_length):
         """
         train the network
         """
@@ -76,12 +76,11 @@ class ddpg_agent:
         for epoch in range(self.args.n_epochs):
             print('Epoch', epoch)
             alice_goals = []
+            random_sp_arr = np.empty(self.args.n_cycles)
 
             if rank == 0:
                 random_sp_arr = np.random.random(self.args.n_cycles)
-            else:
-                random_sp_arr = None
-
+                            
             comm.Bcast(random_sp_arr, root=0)
 
             for cycle in range(self.args.n_cycles):
@@ -90,11 +89,12 @@ class ddpg_agent:
                 is_sp_cycle = random_sp_arr[cycle] < self.args.sp_percent                       
 
                 for i in range(self.args.num_rollouts_per_mpi):
-                    if is_sp_cycle and i % adr.svpg_rollout_length == 0:
+                    svpg_index = i % svpg_rollout_length
+                    if is_sp_cycle and svpg_index == 0:
                         if rank == 0:
-                            env_settings = adr.step_particles()
+                            env_settings = adr.step_particles()[:, :, 0]
                         else:
-                            env_settings = None
+                            env_settings = np.empty((svpg_rollout_length, self.args.nmpi))
 
                         comm.Bcast(env_settings, root=0)
                         svpg_rewards = []
@@ -103,6 +103,7 @@ class ddpg_agent:
                     ep_obs, ep_ag, ep_g, ep_actions, ep_done = [], [], [], [], []
                     # reset the environment
                     self.env.seed(rank + epoch * cycle + i + self.args.seed)
+                    self.env.set_friction(env_settings[svpg_index][rank])
                     observation = self.env.reset()
                     obs = observation['observation']
                     ag = observation['achieved_goal']
@@ -187,14 +188,15 @@ class ddpg_agent:
                         self.alice_policy.log(reward_alice)
                         self.alice_policy.finish_episode(gamma=0.99)
 
-                        if (i + 1) % adr.svpg_rollout_length == 0:
+                        if (i + 1) % svpg_rollout_length == 0:
+                            all_rewards = None
                             if rank == 0:
-                                all_rewards = np.zeros((adr.nparticles, adr.svpg_rollout_length))
-                            else:
-                                all_rewards = TODO # send rewards
+                                all_rewards = np.zeros((self.args.nmpi, svpg_rollout_length))
 
-                            comm.TODO
-                            adr._train_particles(all_rewards)
+                            comm.Gather(np.array(svpg_rewards), all_rewards, root=0)
+                            
+                            if rank == 0:
+                                adr._train_particles(all_rewards)
 
                     else:
                         for t in range(self.env_params['max_timesteps']):

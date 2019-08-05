@@ -10,7 +10,7 @@ import torch
 
 import rpl_environments 
 
-from adr import ADR
+from adr.adr import ADR
 
 
 """
@@ -50,22 +50,25 @@ def launch(args):
     # create the ddpg agent to interact with the environment 
     ddpg_trainer = ddpg_agent(args, env, env_params)
 
-    adr = ADR(
-        nparticles=10,
-        nparams=1,
-        state_dim=1,
-        action_dim=1,
-        temperature=10,
-        svpg_rollout_length=5,
-        svpg_horizon=25,
-        max_step_length=0.05,
-        reward_scale=1,
-        initial_svpg_steps=0,
-        seed=MPI.COMM_WORLD.Get_rank() + args.seed,
-        discriminator_batchsz=320,
-    )
+    if rank == 0:
+        adr = ADR(
+            nparticles=8, # TODO: Make this an arg
+            nparams=1,
+            state_dim=1,
+            action_dim=1,
+            temperature=10,
+            svpg_rollout_length=args.svpg_rollout_length,
+            svpg_horizon=25,
+            max_step_length=0.05,
+            reward_scale=1,
+            initial_svpg_steps=0,
+            seed=rank + args.seed,
+            discriminator_batchsz=320,
+        )
+    else:
+        adr = None
 
-    ddpg_trainer.learn(adr)
+    ddpg_trainer.learn(adr, args.svpg_rollout_length)
 
 if __name__ == '__main__':
     # take the configuration for the HER
