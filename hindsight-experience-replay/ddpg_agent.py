@@ -64,7 +64,7 @@ class ddpg_agent:
             if not os.path.exists(self.model_path):
                 os.makedirs(self.model_path)
 
-    def learn(self):
+    def learn(self, adr):
         """
         train the network
         """
@@ -85,6 +85,9 @@ class ddpg_agent:
             comm.Bcast(random_sp_arr, root=0)
 
             for cycle in range(self.args.n_cycles):
+                # set, broadcast the environments here (rollout particles)
+                ADR.rollout()
+
                 mb_obs, mb_ag, mb_g, mb_actions, mb_done = [], [], [], [], []
                 is_sp_cycle = random_sp_arr[cycle] < self.args.sp_percent
                 for i in range(self.args.num_rollouts_per_mpi):
@@ -210,6 +213,18 @@ class ddpg_agent:
                 for _ in range(self.args.n_batches):
                     # train the network
                     self._update_network()
+
+                # Share the arrays of trajectories, rewards here
+                # if rank == 0:
+                #     random_sp_arr = np.random.random(self.args.n_cycles)
+                #     # set the environments here (rollout particles)
+                # else:
+                #     random_sp_arr = np.empty(self.args.n_cycles)
+
+                # comm.Bcast(random_sp_arr, root=0)
+
+                # Train ADR here on rank == 0
+                    
                 # soft update
                 self._soft_update_target_network(self.actor_target_network, self.actor_network)
                 self._soft_update_target_network(self.critic_target_network, self.critic_network)

@@ -10,6 +10,8 @@ import torch
 
 import rpl_environments 
 
+from adr import ADR
+
 
 """
 train the agent, the MPI part code is copy from openai baselines(https://github.com/openai/baselines/blob/master/baselines/her)
@@ -47,7 +49,23 @@ def launch(args):
     env_params = get_env_params(env)
     # create the ddpg agent to interact with the environment 
     ddpg_trainer = ddpg_agent(args, env, env_params)
-    ddpg_trainer.learn()
+
+    adr = ADR(
+        nparticles=10,
+        nparams=1,
+        state_dim=1,
+        action_dim=1,
+        temperature=10,
+        svpg_rollout_length=5,
+        svpg_horizon=25,
+        max_step_length=0.05,
+        reward_scale=1,
+        initial_svpg_steps=0,
+        seed=MPI.COMM_WORLD.Get_rank() + args.seed,
+        discriminator_batchsz=320,
+    )
+
+    ddpg_trainer.learn(adr)
 
 if __name__ == '__main__':
     # take the configuration for the HER
