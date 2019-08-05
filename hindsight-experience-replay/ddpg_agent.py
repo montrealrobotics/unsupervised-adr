@@ -80,17 +80,25 @@ class ddpg_agent:
             if rank == 0:
                 random_sp_arr = np.random.random(self.args.n_cycles)
             else:
-                random_sp_arr = np.empty(self.args.n_cycles)
+                random_sp_arr = None
 
             comm.Bcast(random_sp_arr, root=0)
 
             for cycle in range(self.args.n_cycles):
                 # set, broadcast the environments here (rollout particles)
-                ADR.rollout()
-
                 mb_obs, mb_ag, mb_g, mb_actions, mb_done = [], [], [], [], []
-                is_sp_cycle = random_sp_arr[cycle] < self.args.sp_percent
+                is_sp_cycle = random_sp_arr[cycle] < self.args.sp_percent                       
+
                 for i in range(self.args.num_rollouts_per_mpi):
+                    if is_sp_cycle and i % adr.svpg_rollout_length == 0:
+                        if rank == 0:
+                            env_settings = adr.step_particles()
+                        else:
+                            env_settings = None
+
+                        comm.Bcast(env_settings, root=0)
+                        svpg_rewards = []
+
                     # reset the rollouts
                     ep_obs, ep_ag, ep_g, ep_actions, ep_done = [], [], [], [], []
                     # reset the environment
@@ -166,6 +174,7 @@ class ddpg_agent:
                             
                             obs = obs_new
                             ag = ag_new
+
                         ep_obs.append(obs.copy())
                         ep_ag.append(ag.copy())
                         mb_obs.append(ep_obs)
@@ -174,8 +183,18 @@ class ddpg_agent:
                         mb_actions.append(ep_actions)
                         
                         reward_alice = self.args.sp_gamma * max(0, bob_time - alice_time)
+                        svpg_rewards.append(reward_alice)
                         self.alice_policy.log(reward_alice)
                         self.alice_policy.finish_episode(gamma=0.99)
+
+                        if (i + 1) % adr.svpg_rollout_length == 0:
+                            if rank == 0:
+                                all_rewards = np.zeros((adr.nparticles, adr.svpg_rollout_length))
+                            else:
+                                all_rewards = TODO # send rewards
+
+                            comm.TODO
+                            adr._train_particles(all_rewards)
 
                     else:
                         for t in range(self.env_params['max_timesteps']):
@@ -206,7 +225,7 @@ class ddpg_agent:
                 mb_ag = np.array(mb_ag)
                 mb_g = np.array(mb_g)
                 mb_actions = np.array(mb_actions)
-                # print(mb_obs.shape, mb_g.shape)
+                
                 # store the episodes
                 self.buffer.store_episode([mb_obs, mb_ag, mb_g, mb_actions])
                 self._update_normalizer([mb_obs, mb_ag, mb_g, mb_actions])
@@ -214,17 +233,6 @@ class ddpg_agent:
                     # train the network
                     self._update_network()
 
-                # Share the arrays of trajectories, rewards here
-                # if rank == 0:
-                #     random_sp_arr = np.random.random(self.args.n_cycles)
-                #     # set the environments here (rollout particles)
-                # else:
-                #     random_sp_arr = np.empty(self.args.n_cycles)
-
-                # comm.Bcast(random_sp_arr, root=0)
-
-                # Train ADR here on rank == 0
-                    
                 # soft update
                 self._soft_update_target_network(self.actor_target_network, self.actor_network)
                 self._soft_update_target_network(self.critic_target_network, self.critic_network)

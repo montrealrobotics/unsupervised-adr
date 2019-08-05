@@ -24,6 +24,7 @@ class ADR:
         self.nparticles = nparticles
         self.nparams = nparams
 
+        self.svpg_rollout_length = svpg_rollout_length
         self.svpg_horizon = svpg_horizon
         self.initial_svpg_steps = initial_svpg_steps
 
