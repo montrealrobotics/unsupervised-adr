@@ -35,7 +35,7 @@ def get_args():
     parser.add_argument('--num-rollouts-per-mpi', type=int, default=10, help='the rollouts per mpi')
     parser.add_argument('--sp-polyak', type=float, default=0.1, help='Polyak Averaging Coefficient')
     parser.add_argument('--sp-gamma', type=float, default=0.1, help='Self play gamma')
-    parser.add_argument('--sp-percent', type=float, default=1.0, help='Self Play Percentage')
+    parser.add_argument('--sp-percent', type=float, default=0.1, help='Self Play Percentage')
 
     parser.add_argument('--friction', type=float, default=0.18, help='friction parameter to set')
 

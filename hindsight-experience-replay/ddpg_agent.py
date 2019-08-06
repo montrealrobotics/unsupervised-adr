@@ -74,7 +74,6 @@ class ddpg_agent:
 
         # start to collect samples
         for epoch in range(self.args.n_epochs):
-            print('Epoch', epoch)
             alice_goals = []
             random_sp_arr = np.empty(self.args.n_cycles)
 
@@ -86,7 +85,8 @@ class ddpg_agent:
             for cycle in range(self.args.n_cycles):
                 # set, broadcast the environments here (rollout particles)
                 mb_obs, mb_ag, mb_g, mb_actions, mb_done = [], [], [], [], []
-                is_sp_cycle = random_sp_arr[cycle] < self.args.sp_percent                       
+                is_sp_cycle = random_sp_arr[cycle] < self.args.sp_percent
+                if rank == 0: print('Epoch {} Cycle {}'.format(epoch, cycle))
 
                 for i in range(self.args.num_rollouts_per_mpi):
                     svpg_index = i % svpg_rollout_length
@@ -256,7 +256,7 @@ class ddpg_agent:
             # start to do the evaluation
             success_rate = self._eval_agent()
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
+                print('[{}] epoch is: {}, eval success rate is: {}'.format(datetime.now(), epoch, success_rate))
                 evals.append(success_rate)
                 np.save(osp.join(self.model_path, 'evals.npy'), evals)
                 np.save(osp.join(self.model_path, 'alice_goals_Ep{}.npy'.format(epoch)), alice_goals)
@@ -391,24 +391,33 @@ class ddpg_agent:
 
     # do the evaluation
     def _eval_agent(self):
-        total_success_rate = []
-        for _ in range(self.args.n_test_rollouts):
-            per_success_rate = []
-            observation = self.env.reset()
-            obs = observation['observation']
-            g = observation['desired_goal']
-            for _ in range(self.env_params['max_timesteps']):
-                with torch.no_grad():
-                    input_tensor = self._preproc_inputs(obs, g)
-                    pi = self.actor_network(input_tensor)
-                    # convert the actions
-                    actions = pi.detach().cpu().numpy().squeeze()
-                observation_new, _, _, info = self.env.step(actions)
-                obs = observation_new['observation']
-                g = observation_new['desired_goal']
-                per_success_rate.append(info['is_success'])
-            total_success_rate.append(per_success_rate)
-        total_success_rate = np.array(total_success_rate)
-        local_success_rate = np.mean(total_success_rate[:, -1])
-        global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
+        generalization = []
+        for friction_multiplier in np.geomspace(0.15, 1.5, 5):
+            self.env.set_friction(friction_multiplier)
+            success_rate = 0
+
+            for _ in range(self.args.n_test_rollouts):
+                observation = self.env.reset()
+                obs = observation['observation']
+                g = observation['desired_goal']
+                done = False
+                
+                for _ in range(self.env_params['max_timesteps']):
+                    with torch.no_grad():
+                        input_tensor = self._preproc_inputs(obs, g)
+                        pi = self.actor_network(input_tensor)
+                        # convert the actions
+                        actions = pi.detach().cpu().numpy().squeeze()
+                    observation_new, _, _, info = self.env.step(actions)
+                    obs = observation_new['observation']
+                    g = observation_new['desired_goal']
+                    if info['is_success'] and not done:
+                        done = True
+                        success_rate += 1.0
+
+            generalization.append(success_rate / self.args.n_test_rollouts)
+            
+        generalization = np.array(generalization)
+        print(generalization)
+        global_success_rate = MPI.COMM_WORLD.allreduce(generalization, op=MPI.SUM)
         return global_success_rate / MPI.COMM_WORLD.Get_size()
