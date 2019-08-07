@@ -86,10 +86,12 @@ class ddpg_agent:
                 # set, broadcast the environments here (rollout particles)
                 mb_obs, mb_ag, mb_g, mb_actions, mb_done = [], [], [], [], []
                 is_sp_cycle = random_sp_arr[cycle] < self.args.sp_percent
-                if rank == 0: print('Epoch {} Cycle {}'.format(epoch, cycle))
+                if rank == 0: 
+                    print('Epoch {} Cycle {}'.format(epoch, cycle))
 
                 for i in range(self.args.num_rollouts_per_mpi):
                     svpg_index = i % svpg_rollout_length
+
                     if is_sp_cycle and svpg_index == 0:
                         if rank == 0:
                             env_settings = adr.step_particles()[:, :, 0]
@@ -106,14 +108,14 @@ class ddpg_agent:
                     # TODO: Fix with sharath
                     
                     observation = self.env.reset()
+                    self.env.randomize([1.0])
+
                     obs = observation['observation']
                     ag = observation['achieved_goal']
                     g = observation['desired_goal']
                     # start to collect samples
 
-                    if is_sp_cycle:
-                        self.env.set_friction(1.0)
-                        
+                    if is_sp_cycle:                        
                         alice_done = False
                         alice_time = 0
                         alice_state = np.concatenate([ag, np.zeros(self.env_params["goal"])])
@@ -141,8 +143,7 @@ class ddpg_agent:
                                 ag = ag_new
 
                         # Bob's policy
-                        friction_multiplier = np.clip(env_settings[svpg_index][rank], 0.1, 0.9)
-                        self.env.set_friction(friction_multiplier)
+                        self.env.randomize([friction_multiplier])
                         self.env.seed(rank + epoch * cycle + i + self.args.seed)
                         observation = self.env.reset()
                         obs = observation['observation']
@@ -393,7 +394,7 @@ class ddpg_agent:
     def _eval_agent(self):
         generalization = []
         for friction_multiplier in np.geomspace(0.15, 1.5, 5):
-            self.env.set_friction(friction_multiplier)
+            self.env.randomize([friction_multiplier])
             success_rate = 0
 
             for _ in range(self.args.n_test_rollouts):

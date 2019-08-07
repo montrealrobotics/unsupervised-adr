@@ -11,6 +11,7 @@ import torch
 import rpl_environments 
 
 from adr.adr import ADR
+from randomizer.wrappers import RandomizedEnvWrapper
 
 
 """
@@ -25,7 +26,7 @@ def get_env_params(env):
             'action': env.action_space.shape[0],
             'action_max': env.action_space.high[0],
             }
-    params['max_timesteps'] = env._max_episode_steps
+    params['max_timesteps'] = 50
     return params
 
 def launch(args):
@@ -36,12 +37,15 @@ def launch(args):
     
     # set random seeds for reproduce
     env.seed(args.seed + rank)
+
+    env = RandomizedEnvWrapper(env, seed=args.seed + rank)
+
     random.seed(args.seed + rank)
     np.random.seed(args.seed + rank)
     torch.manual_seed(args.seed + rank)
 
-    if args.env_name.find('Push') != -1:
-        env.set_friction(args.friction)
+    # if args.env_name.find('Push') != -1:
+    #     env.set_friction(args.friction)
 
     if args.cuda:
         torch.cuda.manual_seed(args.seed + MPI.COMM_WORLD.Get_rank())
