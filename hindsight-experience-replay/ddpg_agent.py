@@ -53,7 +53,8 @@ class ddpg_agent:
         self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
         # create the dict for store the model
 
-        self.args.save_dir = osp.join(self.args.save_dir, 'sp{}polyak{}'.format(args.sp_percent, args.polyak), str(args.seed))
+        self.args.save_dir = osp.join(self.args.save_dir,
+                                      'sp{}polyak{}'.format(args.sp_percent, args.polyak) + '-' + self.args.approach, str(args.seed))
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             if not os.path.exists(self.args.save_dir):
@@ -108,7 +109,8 @@ class ddpg_agent:
                     # TODO: Fix with sharath
                     
                     observation = self.env.reset()
-                    self.env.randomize([1.0])
+                    if self.args.approach == "udr":
+                        self.env.randomize(["default", -1])
 
                     obs = observation['observation']
                     ag = observation['achieved_goal']
@@ -393,8 +395,8 @@ class ddpg_agent:
     # do the evaluation
     def _eval_agent(self):
         generalization = []
-        for friction_multiplier in np.geomspace(0.15, 1.5, 5):
-            self.env.randomize([friction_multiplier])
+        for friction_multiplier in np.geomspace(0.05, 1, 10):
+            self.env.randomize(["default", friction_multiplier])
             success_rate = 0
 
             for _ in range(self.args.n_test_rollouts):
