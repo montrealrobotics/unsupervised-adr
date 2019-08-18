@@ -82,13 +82,15 @@ class ddpg_agent:
                 random_sp_arr = np.random.random(self.args.n_cycles)
                             
             comm.Bcast(random_sp_arr, root=0)
-
+            friction_cycles = []
             for cycle in range(self.args.n_cycles):
                 # set, broadcast the environments here (rollout particles)
                 mb_obs, mb_ag, mb_g, mb_actions, mb_done = [], [], [], [], []
+                friction_values = []
                 is_sp_cycle = random_sp_arr[cycle] < self.args.sp_percent
                 if rank == 0: 
                     print('Epoch {} Cycle {}'.format(epoch, cycle))
+
 
                 for i in range(self.args.num_rollouts_per_mpi):
                     svpg_index = i % svpg_rollout_length
@@ -98,7 +100,6 @@ class ddpg_agent:
                             env_settings = adr.step_particles()[:, :, 0]
                         else:
                             env_settings = np.empty((svpg_rollout_length, self.args.nmpi))
-
                         comm.Bcast(env_settings, root=0)
                         svpg_rewards = []
 
@@ -111,6 +112,7 @@ class ddpg_agent:
                     observation = self.env.reset()
                     if self.args.approach == "udr":
                         self.env.randomize(["default", -1])
+                        
 
                     obs = observation['observation']
                     ag = observation['achieved_goal']
@@ -121,6 +123,7 @@ class ddpg_agent:
                         alice_done = False
                         alice_time = 0
                         alice_state = np.concatenate([ag, np.zeros(self.env_params["goal"])])
+                        self.env.randomize(["default", "default"])
                         # Alice Stopping Policy
                         while not alice_done and (alice_time < self.env_params['max_timesteps']):
                             with torch.no_grad():
@@ -145,15 +148,20 @@ class ddpg_agent:
                                 ag = ag_new
 
                         # Bob's policy
-                        self.env.randomize([friction_multiplier])
-                        self.env.seed(rank + epoch * cycle + i + self.args.seed)
                         observation = self.env.reset()
+                        friction_multiplier = np.clip(env_settings[svpg_index][rank], 0, 1.0)
+#                        print(f'Rollout : {i} setting : {env_settings[svpg_index]}') 
+#                        print(friction_multiplier)
+#                        print(f'rank is {rank}')
+                        friction_values.append(friction_multiplier)
+                        self.env.randomize(["default", friction_multiplier])
+                        self.env.seed(rank + epoch * cycle + i + self.args.seed)
                         obs = observation['observation']
                         ag = observation['achieved_goal']
                         
                         if rank == 0:
                             alice_goals.append(bobs_goal_state)
-                        
+                        print(f'Friction Multipliers : {friction_multiplier} |Num of MPI rollout : {i} | Rank : {rank}')
                         bob_state = np.concatenate([obs, bobs_goal_state])
                         bob_done = False
                         bob_time = 0
@@ -183,7 +191,6 @@ class ddpg_agent:
                             
                             obs = obs_new
                             ag = ag_new
-
                         ep_obs.append(obs.copy())
                         ep_ag.append(ag.copy())
                         mb_obs.append(ep_obs)
@@ -213,8 +220,7 @@ class ddpg_agent:
 
                             # Trick to sync
                             comm.Bcast(wait_hack, root=0)
-                            
-
+                        friction_cycles.append(friction_values)
                     else:
                         for t in range(self.env_params['max_timesteps']):
                             with torch.no_grad():
@@ -239,12 +245,13 @@ class ddpg_agent:
                         mb_ag.append(ep_ag)
                         mb_g.append(ep_g)
                         mb_actions.append(ep_actions)
+                print(friction_cycles)
                 # convert them into arrays
                 mb_obs = np.array(mb_obs)
                 mb_ag = np.array(mb_ag)
                 mb_g = np.array(mb_g)
                 mb_actions = np.array(mb_actions)
-                
+
                 # store the episodes
                 self.buffer.store_episode([mb_obs, mb_ag, mb_g, mb_actions])
                 self._update_normalizer([mb_obs, mb_ag, mb_g, mb_actions])
@@ -260,9 +267,12 @@ class ddpg_agent:
             success_rate = self._eval_agent()
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print('[{}] epoch is: {}, eval success rate is: {}'.format(datetime.now(), epoch, success_rate))
+                print('Friction Multipliers {}'.format(np.around(friction_cycles, 3)))
                 evals.append(success_rate)
+                # print(self.model_path)
                 np.save(osp.join(self.model_path, 'evals.npy'), evals)
                 np.save(osp.join(self.model_path, 'alice_goals_Ep{}.npy'.format(epoch)), alice_goals)
+                np.save(osp.join(self.model_path, 'alice_envs_Ep{}.npy'.format(epoch)), friction_cycles)
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
                             self.actor_network.state_dict()], self.model_path + '/model.pt')
     # pre_process the inputs
