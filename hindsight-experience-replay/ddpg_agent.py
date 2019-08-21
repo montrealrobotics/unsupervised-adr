@@ -150,9 +150,6 @@ class ddpg_agent:
                         # Bob's policy
                         observation = self.env.reset()
                         friction_multiplier = np.clip(env_settings[svpg_index][rank], 0, 1.0)
-#                        print(f'Rollout : {i} setting : {env_settings[svpg_index]}') 
-#                        print(friction_multiplier)
-#                        print(f'rank is {rank}')
                         friction_values.append(friction_multiplier)
                         self.env.randomize(["default", friction_multiplier])
                         self.env.seed(rank + epoch * cycle + i + self.args.seed)
@@ -245,7 +242,6 @@ class ddpg_agent:
                         mb_ag.append(ep_ag)
                         mb_g.append(ep_g)
                         mb_actions.append(ep_actions)
-                print(friction_cycles)
                 # convert them into arrays
                 mb_obs = np.array(mb_obs)
                 mb_ag = np.array(mb_ag)
