@@ -38,7 +38,7 @@ def get_args():
     parser.add_argument('--sp-percent', type=float, default=0.1, help='Self Play Percentage')
 
     parser.add_argument('--friction', type=float, default=0.18, help='friction parameter to set')
-
+    parser.add_argument('--approach', type=str, default='baseline', help='Different approaches for experiments')
     parser.add_argument('--svpg-rollout-length', type=int, default=5)
     parser.add_argument('--nmpi', type=int, default=8) # TODO!
 

@@ -4,8 +4,9 @@ from arguments import get_args
 import gym
 import numpy as np
 import os.path as osp
+import os
+from randomizer.wrappers import RandomizedEnvWrapper
 
-import rpl_environments
 
 # process the inputs
 def process_inputs(o, g, o_mean, o_std, g_mean, g_std, args):
@@ -20,13 +21,14 @@ def process_inputs(o, g, o_mean, o_std, g_mean, g_std, args):
 if __name__ == '__main__':
     args = get_args()
     # load the model param
-    args.save_dir = osp.join(args.save_dir, str(args.seed))
-    # model_path = osp.join(args.save_dir, 'friction{}'.format(args.friction), args.env_name, 'model.pt')
-    model_path = osp.join(args.save_dir, 'friction{}'.format(args.friction), args.env_name, 'model.pt')
+    args.save_dir = osp.join('/saved_models', 'sp{}polyak{}'.format(args.sp_percent, args.sp_polyak) + '-' + args.approach)
+    model_path = osp.join(os.getcwd() +  args.save_dir, str(args.seed), args.env_name, 'model.pt')
     print('Loading: {}'.format(model_path))
     o_mean, o_std, g_mean, g_std, model = torch.load(model_path, map_location=lambda storage, loc: storage)
     # create the environment
     env = gym.make(args.env_name)
+    env.seed(args.seed)
+    env = RandomizedEnvWrapper(env, seed=args.seed)
     # get the env param
     observation = env.reset()
     # get the environment params
@@ -34,6 +36,7 @@ if __name__ == '__main__':
                   'goal': observation['desired_goal'].shape[0], 
                   'action': env.action_space.shape[0], 
                   'action_max': env.action_space.high[0],
+                  'max_episode_steps': 50
                   }
     # create the actor network
     actor_network = actor(env_params)
@@ -43,20 +46,22 @@ if __name__ == '__main__':
     evals = []
     for friction in np.logspace(np.log10(0.01), np.log10(0.5), num=20):
         friction_evals = []
-        env.set_friction(friction)
+        env.randomize(["default", friction])
         print('\t\t##### Friction {} #####'.format(friction))
         for i in range(args.demo_length):
             observation = env.reset()
             # start to do the demo
             obs = observation['observation']
             g = observation['desired_goal']
-            for t in range(env._max_episode_steps):
+            for t in range(env_params['max_episode_steps']):
                 # env.render()
+                # time.sleep(0.01)
                 inputs = process_inputs(obs, g, o_mean, o_std, g_mean, g_std, args)
                 with torch.no_grad():
                     pi = actor_network(inputs)
                 action = pi.detach().numpy().squeeze()
                 # put actions into the environment
+                # print(action)
                 observation_new, reward, _, info = env.step(action)
                 obs = observation_new['observation']
             print('the episode is: {}, is success: {}'.format(i, info['is_success']))
@@ -64,5 +69,5 @@ if __name__ == '__main__':
 
         evals.append((friction, friction_evals))
 
-    np.save(osp.join(args.save_dir, 'friction{}'.format(args.friction), '{}'.format(args.env_name), 'friction_generalization.npy'), evals)
+    np.save(osp.join(os.getcwd() + args.save_dir, str(args.seed), '{}'.format(args.env_name), '{}_generalization.npy'.format(args.approach)), evals)
 
