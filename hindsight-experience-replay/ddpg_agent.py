@@ -91,7 +91,6 @@ class ddpg_agent:
                 if rank == 0: 
                     print('Epoch {} Cycle {}'.format(epoch, cycle))
 
-
                 for i in range(self.args.num_rollouts_per_mpi):
                     svpg_index = i % svpg_rollout_length
 
@@ -150,9 +149,6 @@ class ddpg_agent:
                         # Bob's policy
                         observation = self.env.reset()
                         friction_multiplier = np.clip(env_settings[svpg_index][rank], 0, 1.0)
-#                        print(f'Rollout : {i} setting : {env_settings[svpg_index]}') 
-#                        print(friction_multiplier)
-#                        print(f'rank is {rank}')
                         friction_values.append(friction_multiplier)
                         self.env.randomize(["default", friction_multiplier])
                         self.env.seed(rank + epoch * cycle + i + self.args.seed)
@@ -161,7 +157,6 @@ class ddpg_agent:
                         
                         if rank == 0:
                             alice_goals.append(bobs_goal_state)
-                        print(f'Friction Multipliers : {friction_multiplier} |Num of MPI rollout : {i} | Rank : {rank}')
                         bob_state = np.concatenate([obs, bobs_goal_state])
                         bob_done = False
                         bob_time = 0
@@ -245,7 +240,6 @@ class ddpg_agent:
                         mb_ag.append(ep_ag)
                         mb_g.append(ep_g)
                         mb_actions.append(ep_actions)
-                print(friction_cycles)
                 # convert them into arrays
                 mb_obs = np.array(mb_obs)
                 mb_ag = np.array(mb_ag)
@@ -269,7 +263,6 @@ class ddpg_agent:
                 print('[{}] epoch is: {}, eval success rate is: {}'.format(datetime.now(), epoch, success_rate))
                 print('Friction Multipliers {}'.format(np.around(friction_cycles, 3)))
                 evals.append(success_rate)
-                # print(self.model_path)
                 np.save(osp.join(self.model_path, 'evals.npy'), evals)
                 np.save(osp.join(self.model_path, 'alice_goals_Ep{}.npy'.format(epoch)), alice_goals)
                 np.save(osp.join(self.model_path, 'alice_envs_Ep{}.npy'.format(epoch)), friction_cycles)
