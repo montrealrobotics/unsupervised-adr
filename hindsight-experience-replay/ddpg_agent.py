@@ -400,8 +400,7 @@ class ddpg_agent:
     # do the evaluation
     def _eval_agent(self):
         generalization = []
-        env.seed(100000)
-        for friction_multiplier in np.geomspace(0.08, 1, 10):
+        for friction_multiplier in np.geomspace(0.05, 1, 10):
             self.env.randomize(["default", friction_multiplier])
             success_rate = 0
 
