@@ -56,7 +56,7 @@ def launch(args):
 
     if rank == 0:
         adr = ADR(
-            nparticles=8, # TODO: Make this an arg
+            nparticles=MPI.COMM_WORLD.Get_size(),
             nparams=1,
             state_dim=1,
             action_dim=1,

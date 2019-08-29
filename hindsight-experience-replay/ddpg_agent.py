@@ -56,11 +56,12 @@ class ddpg_agent:
         self.args.save_dir = osp.join(self.args.save_dir,
                                       'sp{}polyak{}'.format(args.sp_percent, args.polyak) + '-' + self.args.approach, str(args.seed))
 
+        self.model_path = os.path.join(self.args.save_dir, self.args.env_name)
+
         if MPI.COMM_WORLD.Get_rank() == 0:
             if not os.path.exists(self.args.save_dir):
                 os.makedirs(self.args.save_dir)
             # path to save the model
-            self.model_path = os.path.join(self.args.save_dir, self.args.env_name)
             # self.model_path = osp.join(self.model_path, str(args.seed))
             if not os.path.exists(self.model_path):
                 os.makedirs(self.model_path)
@@ -75,6 +76,7 @@ class ddpg_agent:
 
         # start to collect samples
         for epoch in range(self.args.n_epochs):
+            friction_values = []
             alice_goals = []
             random_sp_arr = np.empty(self.args.n_cycles)
 
@@ -82,11 +84,11 @@ class ddpg_agent:
                 random_sp_arr = np.random.random(self.args.n_cycles)
                             
             comm.Bcast(random_sp_arr, root=0)
-            friction_cycles = []
+
             for cycle in range(self.args.n_cycles):
                 # set, broadcast the environments here (rollout particles)
                 mb_obs, mb_ag, mb_g, mb_actions, mb_done = [], [], [], [], []
-                friction_values = []
+                
                 is_sp_cycle = random_sp_arr[cycle] < self.args.sp_percent
                 if rank == 0: 
                     print('Epoch {} Cycle {}'.format(epoch, cycle))
@@ -111,7 +113,6 @@ class ddpg_agent:
                     observation = self.env.reset()
                     if self.args.approach == "udr":
                         self.env.randomize(["default", -1])
-                        
 
                     obs = observation['observation']
                     ag = observation['achieved_goal']
@@ -151,6 +152,7 @@ class ddpg_agent:
                         friction_multiplier = np.clip(env_settings[svpg_index][rank], 0, 1.0)
                         friction_values.append(friction_multiplier)
                         self.env.randomize(["default", friction_multiplier])
+
                         self.env.seed(rank + epoch * cycle + i + self.args.seed)
                         obs = observation['observation']
                         ag = observation['achieved_goal']
@@ -215,7 +217,7 @@ class ddpg_agent:
 
                             # Trick to sync
                             comm.Bcast(wait_hack, root=0)
-                        friction_cycles.append(friction_values)
+                        
                     else:
                         for t in range(self.env_params['max_timesteps']):
                             with torch.no_grad():
@@ -259,13 +261,13 @@ class ddpg_agent:
 
             # start to do the evaluation
             success_rate = self._eval_agent()
+            np.save(osp.join(self.model_path, 'alice_envs_Ep{}_R{}.npy'.format(epoch, rank)), friction_values)
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print('[{}] epoch is: {}, eval success rate is: {}'.format(datetime.now(), epoch, success_rate))
-                print('Friction Multipliers {}'.format(np.around(friction_cycles, 3)))
                 evals.append(success_rate)
                 np.save(osp.join(self.model_path, 'evals.npy'), evals)
                 np.save(osp.join(self.model_path, 'alice_goals_Ep{}.npy'.format(epoch)), alice_goals)
-                np.save(osp.join(self.model_path, 'alice_envs_Ep{}.npy'.format(epoch)), friction_cycles)
+                
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
                             self.actor_network.state_dict()], self.model_path + '/model.pt')
     # pre_process the inputs
@@ -398,7 +400,8 @@ class ddpg_agent:
     # do the evaluation
     def _eval_agent(self):
         generalization = []
-        for friction_multiplier in np.geomspace(0.05, 1, 10):
+        env.seed(100000)
+        for friction_multiplier in np.geomspace(0.08, 1, 10):
             self.env.randomize(["default", friction_multiplier])
             success_rate = 0
 
@@ -424,6 +427,5 @@ class ddpg_agent:
             generalization.append(success_rate / self.args.n_test_rollouts)
             
         generalization = np.array(generalization)
-        print(generalization)
         global_success_rate = MPI.COMM_WORLD.allreduce(generalization, op=MPI.SUM)
         return global_success_rate / MPI.COMM_WORLD.Get_size()

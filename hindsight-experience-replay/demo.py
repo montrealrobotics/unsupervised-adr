@@ -44,9 +44,11 @@ if __name__ == '__main__':
     actor_network.eval()
 
     evals = []
-    for friction in np.logspace(np.log10(0.01), np.log10(0.5), num=20):
+    for friction in np.geomspace(0.18 * 0.01, 1, 10):
+    # for friction in [0.18 * 0.01]:
         friction_evals = []
         env.randomize(["default", friction])
+        env.seed(1000)
         print('\t\t##### Friction {} #####'.format(friction))
         for i in range(args.demo_length):
             observation = env.reset()
@@ -63,6 +65,7 @@ if __name__ == '__main__':
                 # put actions into the environment
                 # print(action)
                 observation_new, reward, _, info = env.step(action)
+                env.render()
                 obs = observation_new['observation']
             print('the episode is: {}, is success: {}'.format(i, info['is_success']))
             friction_evals.append(info['is_success'])
