@@ -57,6 +57,12 @@ class ddpg_agent:
                                       'sp{}polyak{}'.format(args.sp_percent, args.polyak) + '-' + self.args.approach, str(args.seed))
 
         self.model_path = os.path.join(self.args.save_dir, self.args.env_name)
+        print(f'Environment Name : {self.args.env_name} | '
+              f'Approach : {self.args.approach} | '
+              f'Self Play Percent : {self.args.sp_percent} | '
+              f'Polyak Coefficient : {self.args.polyak} | '
+              f'Seed : {self.args.seed} | '
+              f'Save Directory : {self.args.save_dir}')
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             if not os.path.exists(self.args.save_dir):
@@ -90,6 +96,7 @@ class ddpg_agent:
                 mb_obs, mb_ag, mb_g, mb_actions, mb_done = [], [], [], [], []
                 
                 is_sp_cycle = random_sp_arr[cycle] < self.args.sp_percent
+
                 if rank == 0: 
                     print('Epoch {} Cycle {}'.format(epoch, cycle))
 
@@ -98,13 +105,14 @@ class ddpg_agent:
 
                     if is_sp_cycle and svpg_index == 0:
                         if rank == 0:
-                            env_settings = adr.step_particles()[:, :, 0]
+                            env_settings = adr.step_particles()
+                            env_settings = np.ascontiguousarray(env_settings)
                         else:
                             env_settings = np.empty((svpg_rollout_length, self.args.nmpi))
+                        # print(env_settings)
+                        # print(env_settings.shape)
                         comm.Bcast(env_settings, root=0)
                         svpg_rewards = []
-                    print(env_settings)
-                    print(env_settings.shape)
                     # reset the rollouts
                     ep_obs, ep_ag, ep_g, ep_actions, ep_done = [], [], [], [], []
                     # reset the environment
@@ -150,9 +158,11 @@ class ddpg_agent:
 
                         # Bob's policy
                         observation = self.env.reset()
-                        friction_multiplier = np.clip(env_settings[svpg_index][rank], 0, 1.0)
+                        block_mass_multiplier = np.clip(env_settings[svpg_index][rank][0], 0, 1.0)
+                        hook_mass_multiplier = np.clip(env_settings[svpg_index][rank][1], 0, 1.0)
+                        friction_multiplier = np.clip(env_settings[svpg_index][rank][2], 0, 1.0)
                         friction_values.append(friction_multiplier)
-                        self.env.randomize(["default", friction_multiplier])
+                        self.env.randomize([block_mass_multiplier, hook_mass_multiplier, friction_multiplier])
 
                         self.env.seed(rank + epoch * cycle + i + self.args.seed)
                         obs = observation['observation']
