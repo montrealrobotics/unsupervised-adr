@@ -26,7 +26,7 @@ def get_env_params(env):
             'action': env.action_space.shape[0],
             'action_max': env.action_space.high[0],
             }
-    params['max_timesteps'] = 50
+    params['max_timesteps'] = 100
     return params
 
 def launch(args):
@@ -57,7 +57,7 @@ def launch(args):
     if rank == 0:
         adr = ADR(
             nparticles=MPI.COMM_WORLD.Get_size(),
-            nparams=1,
+            nparams=3,
             state_dim=1,
             action_dim=1,
             temperature=10,

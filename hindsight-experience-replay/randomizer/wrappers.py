@@ -62,7 +62,6 @@ class RandomizedEnvWrapper(gym.Wrapper):
 
         self.unwrapped.update_randomized_params()
 
-
     def step(self, action):
         return self.env.step(action)
 

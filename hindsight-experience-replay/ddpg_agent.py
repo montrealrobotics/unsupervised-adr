@@ -103,7 +103,8 @@ class ddpg_agent:
                             env_settings = np.empty((svpg_rollout_length, self.args.nmpi))
                         comm.Bcast(env_settings, root=0)
                         svpg_rewards = []
-
+                    print(env_settings)
+                    print(env_settings.shape)
                     # reset the rollouts
                     ep_obs, ep_ag, ep_g, ep_actions, ep_done = [], [], [], [], []
                     # reset the environment
@@ -112,7 +113,7 @@ class ddpg_agent:
                     
                     observation = self.env.reset()
                     if self.args.approach == "udr":
-                        self.env.randomize(["default", -1])
+                        self.env.randomize([-1, -1, -1])
 
                     obs = observation['observation']
                     ag = observation['achieved_goal']
@@ -123,7 +124,7 @@ class ddpg_agent:
                         alice_done = False
                         alice_time = 0
                         alice_state = np.concatenate([ag, np.zeros(self.env_params["goal"])])
-                        self.env.randomize(["default", "default"])
+                        self.env.randomize(["default"] * 3)
                         # Alice Stopping Policy
                         while not alice_done and (alice_time < self.env_params['max_timesteps']):
                             with torch.no_grad():
@@ -400,31 +401,34 @@ class ddpg_agent:
     # do the evaluation
     def _eval_agent(self):
         generalization = []
-        for friction_multiplier in np.geomspace(0.05, 1, 10):
-            self.env.randomize(["default", friction_multiplier])
-            success_rate = 0
+        for friction_multiplier in np.linspace(0.05, 1, 5):
+            for hook_mass in np.linspace(0.05, 1, 5):
+                for block_mass in np.linspace(0.05, 1, 5):
+                    self.env.randomize([block_mass, hook_mass, friction_multiplier])
+                    success_rate = 0
 
-            for _ in range(self.args.n_test_rollouts):
-                observation = self.env.reset()
-                obs = observation['observation']
-                g = observation['desired_goal']
-                done = False
-                
-                for _ in range(self.env_params['max_timesteps']):
-                    with torch.no_grad():
-                        input_tensor = self._preproc_inputs(obs, g)
-                        pi = self.actor_network(input_tensor)
-                        # convert the actions
-                        actions = pi.detach().cpu().numpy().squeeze()
-                    observation_new, _, _, info = self.env.step(actions)
-                    obs = observation_new['observation']
-                    g = observation_new['desired_goal']
-                    if info['is_success'] and not done:
-                        done = True
-                        success_rate += 1.0
+                    for _ in range(self.args.n_test_rollouts):
+                        observation = self.env.reset()
+                        obs = observation['observation']
+                        g = observation['desired_goal']
+                        done = False
 
-            generalization.append(success_rate / self.args.n_test_rollouts)
+                        for _ in range(self.env_params['max_timesteps']):
+                            with torch.no_grad():
+                                input_tensor = self._preproc_inputs(obs, g)
+                                pi = self.actor_network(input_tensor)
+                                # convert the actions
+                                actions = pi.detach().cpu().numpy().squeeze()
+                            observation_new, _, _, info = self.env.step(actions)
+                            obs = observation_new['observation']
+                            g = observation_new['desired_goal']
+                            if info['is_success'] and not done:
+                                done = True
+                                success_rate += 1.0
+
+                    generalization.append(success_rate / self.args.n_test_rollouts)
             
         generalization = np.array(generalization)
         global_success_rate = MPI.COMM_WORLD.allreduce(generalization, op=MPI.SUM)
-        return global_success_rate / MPI.COMM_WORLD.Get_size()
+        global_success_rate = global_success_rate / MPI.COMM_WORLD.Get_size()
+        return np.reshape(global_success_rate, (5, 5, 5))
