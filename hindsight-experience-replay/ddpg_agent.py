@@ -108,9 +108,7 @@ class ddpg_agent:
                             env_settings = adr.step_particles()
                             env_settings = np.ascontiguousarray(env_settings)
                         else:
-                            env_settings = np.empty((svpg_rollout_length, self.args.nmpi))
-                        # print(env_settings)
-                        # print(env_settings.shape)
+                            env_settings = np.empty((svpg_rollout_length, self.args.nmpi, 3))
                         comm.Bcast(env_settings, root=0)
                         svpg_rewards = []
                     # reset the rollouts
@@ -119,9 +117,10 @@ class ddpg_agent:
                     self.env.seed(rank + epoch * cycle + i + self.args.seed)
                     # TODO: Fix with sharath
                     
+
+                    # if self.args.approach == "udr":
+                    #     self.env.randomize([-1, -1, -1])
                     observation = self.env.reset()
-                    if self.args.approach == "udr":
-                        self.env.randomize([-1, -1, -1])
 
                     obs = observation['observation']
                     ag = observation['achieved_goal']
@@ -157,13 +156,12 @@ class ddpg_agent:
                                 ag = ag_new
 
                         # Bob's policy
-                        observation = self.env.reset()
                         block_mass_multiplier = np.clip(env_settings[svpg_index][rank][0], 0, 1.0)
                         hook_mass_multiplier = np.clip(env_settings[svpg_index][rank][1], 0, 1.0)
                         friction_multiplier = np.clip(env_settings[svpg_index][rank][2], 0, 1.0)
                         friction_values.append(friction_multiplier)
                         self.env.randomize([block_mass_multiplier, hook_mass_multiplier, friction_multiplier])
-
+                        observation = self.env.reset()
                         self.env.seed(rank + epoch * cycle + i + self.args.seed)
                         obs = observation['observation']
                         ag = observation['achieved_goal']
@@ -414,7 +412,7 @@ class ddpg_agent:
         for friction_multiplier in np.linspace(0.05, 1, 5):
             for hook_mass in np.linspace(0.05, 1, 5):
                 for block_mass in np.linspace(0.05, 1, 5):
-                    self.env.randomize([block_mass, hook_mass, friction_multiplier])
+                    # self.env.randomize([block_mass, hook_mass, friction_multiplier])
                     success_rate = 0
 
                     for _ in range(self.args.n_test_rollouts):
