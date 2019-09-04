@@ -103,7 +103,7 @@ class ddpg_agent:
                 for i in range(self.args.num_rollouts_per_mpi):
                     svpg_index = i % svpg_rollout_length
 
-                    if is_sp_cycle and svpg_index == 0:
+                    if is_sp_cycle and svpg_index == 0 and self.args.approach == "adr":
                         if rank == 0:
                             env_settings = adr.step_particles()
                             env_settings = np.ascontiguousarray(env_settings)
