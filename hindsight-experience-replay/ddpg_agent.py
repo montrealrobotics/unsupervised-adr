@@ -79,7 +79,6 @@ class ddpg_agent:
         evals = []
         rank = MPI.COMM_WORLD.Get_rank()
         comm = MPI.COMM_WORLD
-
         # start to collect samples
         for epoch in range(self.args.n_epochs):
             friction_values = []
@@ -233,7 +232,7 @@ class ddpg_agent:
                                 input_tensor = self._preproc_inputs(obs, g)
                                 pi = self.actor_network(input_tensor)
                                 action = self._select_actions(pi)
-                            if i == 4 and rank == 0:
+                            if i == 4:
                                 print(f"Epoch {epoch} | Cycle : {cycle} | Rollout : {i}")
                                 print(f'Action : {action}')
                                 print(f"State : {obs}")

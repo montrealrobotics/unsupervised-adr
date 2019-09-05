@@ -107,7 +107,7 @@ register(
 register(
     id='ResidualMPCPushDefaultEnv-v0',
     entry_point='randomizer.randomized_mpc_push:ResidualMPCPushRandomizedEnv',
-    max_episode_steps=1000,
+    max_episode_steps=100,
     kwargs={
         'config': 'randomizer/config/ResidualMPCPushRandomized/default.json',
         'xml_name': 'push.xml'
@@ -117,7 +117,7 @@ register(
 register(
     id='FetchHookRandomizedEnv-v0',
     entry_point='randomizer.randomized_fetch_hook:RandomizedFetchHookEnv',
-    max_episode_steps=1000,
+    max_episode_steps=100,
     kwargs={
         'config': 'randomizer/config/ResidualFetchHookRandomized/random.json',
         'xml_name': 'hook.xml'
@@ -126,7 +126,7 @@ register(
 register(
     id='FetchHookDefaultEnv-v0',
     entry_point='randomizer.randomized_fetch_hook:RandomizedFetchHookEnv',
-    max_episode_steps=1000,
+    max_episode_steps=100,
     kwargs={
         'config': 'randomizer/config/ResidualFetchHookRandomized/default.json',
         'xml_name': 'hook.xml'
@@ -135,7 +135,7 @@ register(
 register(
     id='ResidualHookRandomizedEnv-v0',
     entry_point='randomizer.randomized_residual_hook:ResidualFetchHookEnv',
-    max_episode_steps=1000,
+    max_episode_steps=100,
     kwargs={
         'config': 'randomizer/config/ResidualFetchHookRandomized/random.json',
         'xml_name': 'hook.xml'
@@ -144,7 +144,7 @@ register(
 register(
     id='ResidualHookDefaultEnv-v0',
     entry_point='randomizer.randomized_residual_hook:ResidualFetchHookEnv',
-    max_episode_steps=1000,
+    max_episode_steps=100,
     kwargs={
         'config': 'randomizer/config/ResidualFetchHookRandomized/default.json',
         'xml_name': 'hook.xml'
