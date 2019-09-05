@@ -190,10 +190,10 @@ register(
 register(
     id='TwoFrameResidualHookNoisy-v0',
     entry_point='randomizer.fetch_hook_env:TwoFrameResidualHookNoisyEnv',
-    max_episode_steps=150,
+    max_episode_steps=100,
 )
 register(
     id='ResidualFetchHook-v0',
     entry_point='randomizer.fetch_hook_env:ResidualFetchHookEnv',
-    max_episode_steps=150,
+    max_episode_steps=100,
 )
