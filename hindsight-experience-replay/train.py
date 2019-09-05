@@ -11,7 +11,7 @@ import torch
 import rpl_environments 
 
 from adr.adr import ADR
-from randomizer.wrappers import RandomizedEnvWrapper
+# from randomizer.wrappers import RandomizedEnvWrapper
 
 
 """
@@ -38,7 +38,7 @@ def launch(args):
     # set random seeds for reproduce
     env.seed(args.seed + rank)
 
-    env = RandomizedEnvWrapper(env, seed=args.seed + rank)
+    # env = RandomizedEnvWrapper(env, seed=args.seed + rank)
 
     random.seed(args.seed + rank)
     np.random.seed(args.seed + rank)

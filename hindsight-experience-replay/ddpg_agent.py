@@ -409,9 +409,9 @@ class ddpg_agent:
     # do the evaluation
     def _eval_agent(self):
         generalization = []
-        for friction_multiplier in np.linspace(0.05, 1, 5):
-            for hook_mass in np.linspace(0.05, 1, 5):
-                for block_mass in np.linspace(0.05, 1, 5):
+        for friction_multiplier in np.linspace(0.05, 1, 1):
+            for hook_mass in np.linspace(0.05, 1, 1):
+                for block_mass in np.linspace(0.05, 1, 1):
                     # self.env.randomize([block_mass, hook_mass, friction_multiplier])
                     success_rate = 0
 
@@ -439,4 +439,4 @@ class ddpg_agent:
         generalization = np.array(generalization)
         global_success_rate = MPI.COMM_WORLD.allreduce(generalization, op=MPI.SUM)
         global_success_rate = global_success_rate / MPI.COMM_WORLD.Get_size()
-        return np.reshape(global_success_rate, (5, 5, 5))
+        return np.reshape(global_success_rate, (1, 1, 1))

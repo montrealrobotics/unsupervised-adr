@@ -187,4 +187,8 @@ register(
         'xml_name': 'hook.xml'
     }
 )
-
+register(
+    id='TwoFrameResidualHookNoisy-v0',
+    entry_point='randomizer.fetch_hook_env:TwoFrameResidualHookNoisyEnv',
+    timestep_limit=100,
+)
