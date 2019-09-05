@@ -8,9 +8,10 @@ from ddpg_agent import ddpg_agent
 import random
 import torch
 
-import rpl_environments 
+import rpl_environments
 
 from adr.adr import ADR
+import randomizer
 # from randomizer.wrappers import RandomizedEnvWrapper
 
 

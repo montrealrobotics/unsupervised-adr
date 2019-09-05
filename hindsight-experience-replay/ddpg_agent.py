@@ -233,6 +233,10 @@ class ddpg_agent:
                                 input_tensor = self._preproc_inputs(obs, g)
                                 pi = self.actor_network(input_tensor)
                                 action = self._select_actions(pi)
+                            if i == 4 and rank == 0:
+                                print(f"Epoch {epoch} | Cycle : {cycle} | Rollout : {i}")
+                                print(f'Action : {action}')
+                                print(f"State : {obs}")
                             # feed the actions into the environment
                             observation_new, _, done, info = self.env.step(action)
                             obs_new = observation_new['observation']
