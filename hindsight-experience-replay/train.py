@@ -8,11 +8,8 @@ from ddpg_agent import ddpg_agent
 import random
 import torch
 
-import rpl_environments
-
 from adr.adr import ADR
-import randomizer
-# from randomizer.wrappers import RandomizedEnvWrapper
+from randomizer.wrappers import RandomizedEnvWrapper
 
 
 """
@@ -27,7 +24,7 @@ def get_env_params(env):
             'action': env.action_space.shape[0],
             'action_max': env.action_space.high[0],
             }
-    params['max_timesteps'] = 100
+    params['max_timesteps'] = env._max_episode_steps
     return params
 
 def launch(args):
@@ -35,11 +32,13 @@ def launch(args):
     rank = MPI.COMM_WORLD.Get_rank()
     
     env = gym.make(args.env_name)
+    # get the environment parameters
+    env_params = get_env_params(env)
     
     # set random seeds for reproduce
     env.seed(args.seed + rank)
 
-    # env = RandomizedEnvWrapper(env, seed=args.seed + rank)
+    env = RandomizedEnvWrapper(env, seed=args.seed + rank)
 
     random.seed(args.seed + rank)
     np.random.seed(args.seed + rank)
@@ -50,8 +49,6 @@ def launch(args):
 
     if args.cuda:
         torch.cuda.manual_seed(args.seed + MPI.COMM_WORLD.Get_rank())
-    # get the environment parameters
-    env_params = get_env_params(env)
     # create the ddpg agent to interact with the environment 
     ddpg_trainer = ddpg_agent(args, env, env_params)
 

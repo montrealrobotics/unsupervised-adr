@@ -53,8 +53,8 @@ class RandomizedResidualPushEnv(ResidualSlipperyPushEnv):
             initial_qpos=initial_qpos)
 
         # randomization
-        self.xml_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets", "fetch")
-        self.reference_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets", "fetch",
+        self.xml_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets")
+        self.reference_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets",
                                            kwargs.get('xml_name'))
         self.reference_xml = et.parse(self.reference_path)
         self.config_file = kwargs.get('config')
