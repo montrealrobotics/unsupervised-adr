@@ -119,6 +119,8 @@ class ddpg_agent:
 
                     if self.args.approach == "udr":
                         self.env.randomize([-1, -1, -1])
+                    elif self.args.approach == "ranges_check":
+                        self.env.randomize([1, 1, 1])
                     observation = self.env.reset()
 
                     obs = observation['observation']
