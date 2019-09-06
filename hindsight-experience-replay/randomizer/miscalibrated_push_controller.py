@@ -1,4 +1,4 @@
-from .pick_and_place_controller import get_move_action
+from .controllers.pick_and_place_controller import get_move_action
 
 import numpy as np
 

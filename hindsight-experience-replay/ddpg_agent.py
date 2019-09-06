@@ -57,6 +57,12 @@ class ddpg_agent:
                                       'sp{}polyak{}'.format(args.sp_percent, args.polyak) + '-' + self.args.approach, str(args.seed))
 
         self.model_path = os.path.join(self.args.save_dir, self.args.env_name)
+        print(f'Environment Name : {self.args.env_name} | '
+              f'Approach : {self.args.approach} | '
+              f'Self Play Percent : {self.args.sp_percent} | '
+              f'Polyak Coefficient : {self.args.polyak} | '
+              f'Seed : {self.args.seed} | '
+              f'Save Directory : {self.args.save_dir}')
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             if not os.path.exists(self.args.save_dir):
@@ -73,11 +79,11 @@ class ddpg_agent:
         evals = []
         rank = MPI.COMM_WORLD.Get_rank()
         comm = MPI.COMM_WORLD
-
         # start to collect samples
         for epoch in range(self.args.n_epochs):
             friction_values = []
             alice_goals = []
+            except_count = 0
             random_sp_arr = np.empty(self.args.n_cycles)
 
             if rank == 0:
@@ -90,29 +96,32 @@ class ddpg_agent:
                 mb_obs, mb_ag, mb_g, mb_actions, mb_done = [], [], [], [], []
                 
                 is_sp_cycle = random_sp_arr[cycle] < self.args.sp_percent
+
                 if rank == 0: 
                     print('Epoch {} Cycle {}'.format(epoch, cycle))
 
                 for i in range(self.args.num_rollouts_per_mpi):
                     svpg_index = i % svpg_rollout_length
 
-                    if is_sp_cycle and svpg_index == 0:
+                    if is_sp_cycle and svpg_index == 0 and self.args.approach == "adr":
                         if rank == 0:
-                            env_settings = adr.step_particles()[:, :, 0]
+                            env_settings = adr.step_particles()
+                            env_settings = np.ascontiguousarray(env_settings)
                         else:
-                            env_settings = np.empty((svpg_rollout_length, self.args.nmpi))
+                            env_settings = np.empty((svpg_rollout_length, self.args.nmpi, 3))
                         comm.Bcast(env_settings, root=0)
                         svpg_rewards = []
-
                     # reset the rollouts
                     ep_obs, ep_ag, ep_g, ep_actions, ep_done = [], [], [], [], []
                     # reset the environment
                     self.env.seed(rank + epoch * cycle + i + self.args.seed)
                     # TODO: Fix with sharath
-                    
-                    observation = self.env.reset()
+
                     if self.args.approach == "udr":
-                        self.env.randomize(["default", -1])
+                        self.env.randomize([-1, -1, -1])
+                    elif self.args.approach == "ranges_check":
+                        self.env.randomize([1, 1, 1])
+                    observation = self.env.reset()
 
                     obs = observation['observation']
                     ag = observation['achieved_goal']
@@ -123,14 +132,25 @@ class ddpg_agent:
                         alice_done = False
                         alice_time = 0
                         alice_state = np.concatenate([ag, np.zeros(self.env_params["goal"])])
-                        self.env.randomize(["default", "default"])
+                        self.env.randomize(["default"] * 3)
+                        observation = self.env.reset()
+
+                        obs = observation['observation']
+                        ag = observation['achieved_goal']
+                        g = observation['desired_goal']
                         # Alice Stopping Policy
                         while not alice_done and (alice_time < self.env_params['max_timesteps']):
                             with torch.no_grad():
                                 input_tensor = self._preproc_inputs(obs, g)
                                 pi = self.actor_target_network(input_tensor)
                                 action = self._select_actions(pi)
-                            observation_new, reward, env_done, _ = self.env.step(action)
+                            try:
+                                observation_new, reward, env_done, _ = self.env.step(action)
+                            except:
+                                except_count += 1
+                                print(f'Exception count : {except_count} | Epoch : {epoch} | '
+                                      f'Cycle : {cycle} | Rollout : {i}')
+                                pass
                             obs_new = observation_new['observation']
                             ag_new = observation_new['achieved_goal']
                             alice_signal = self.alice_policy.select_action(alice_state)
@@ -148,11 +168,12 @@ class ddpg_agent:
                                 ag = ag_new
 
                         # Bob's policy
-                        observation = self.env.reset()
-                        friction_multiplier = np.clip(env_settings[svpg_index][rank], 0, 1.0)
+                        block_mass_multiplier = np.clip(env_settings[svpg_index][rank][0], 0, 1.0)
+                        hook_mass_multiplier = np.clip(env_settings[svpg_index][rank][1], 0, 1.0)
+                        friction_multiplier = np.clip(env_settings[svpg_index][rank][2], 0, 1.0)
                         friction_values.append(friction_multiplier)
-                        self.env.randomize(["default", friction_multiplier])
-
+                        self.env.randomize([block_mass_multiplier, hook_mass_multiplier, friction_multiplier])
+                        observation = self.env.reset()
                         self.env.seed(rank + epoch * cycle + i + self.args.seed)
                         obs = observation['observation']
                         ag = observation['achieved_goal']
@@ -167,8 +188,13 @@ class ddpg_agent:
                                 input_tensor = self._preproc_inputs(obs, bobs_goal_state)
                                 pi = self.actor_network(input_tensor)
                                 action = self._select_actions(pi)
-
-                            observation_new, reward, env_done, _ = self.env.step(action)
+                            try:
+                                observation_new, reward, env_done, _ = self.env.step(action)
+                            except:
+                                except_count += 1
+                                print(f'Exception count : {except_count} | Epoch : {epoch} | '
+                                      f'Cycle : {cycle} | Rollout : {i}')
+                                pass
 
                             bob_signal = self._check_closeness(observation_new["achieved_goal"], bobs_goal_state)
                             bob_done = env_done or bob_signal or bob_done
@@ -225,7 +251,13 @@ class ddpg_agent:
                                 pi = self.actor_network(input_tensor)
                                 action = self._select_actions(pi)
                             # feed the actions into the environment
-                            observation_new, _, done, info = self.env.step(action)
+                            try:
+                                observation_new, _, done, info = self.env.step(action)
+                            except:
+                                except_count += 1
+                                print(f'Exception count : {except_count} | Epoch : {epoch} | '
+                                      f'Cycle : {cycle} | Rollout : {i}')
+                                pass
                             obs_new = observation_new['observation']
                             ag_new = observation_new['achieved_goal']
                             # append rollouts
@@ -399,32 +431,42 @@ class ddpg_agent:
 
     # do the evaluation
     def _eval_agent(self):
-        generalization = []
-        for friction_multiplier in np.geomspace(0.05, 1, 10):
-            self.env.randomize(["default", friction_multiplier])
-            success_rate = 0
+        generalization = np.zeros((3, 10))
+        env_multipliers = ["default"] * 3
+        eval_exception = 0
+        for idx, multiplier in enumerate(np.linspace(0.05, 1, 10)):
+            for i in range(len(env_multipliers)):
+                env_multipliers[i] = multiplier
+                self.env.randomize(env_multipliers)
+                self.env.reset()
+                success_rate = 0
 
-            for _ in range(self.args.n_test_rollouts):
-                observation = self.env.reset()
-                obs = observation['observation']
-                g = observation['desired_goal']
-                done = False
-                
-                for _ in range(self.env_params['max_timesteps']):
-                    with torch.no_grad():
-                        input_tensor = self._preproc_inputs(obs, g)
-                        pi = self.actor_network(input_tensor)
-                        # convert the actions
-                        actions = pi.detach().cpu().numpy().squeeze()
-                    observation_new, _, _, info = self.env.step(actions)
-                    obs = observation_new['observation']
-                    g = observation_new['desired_goal']
-                    if info['is_success'] and not done:
-                        done = True
-                        success_rate += 1.0
+                for _ in range(self.args.n_test_rollouts):
+                    observation = self.env.reset()
+                    obs = observation['observation']
+                    g = observation['desired_goal']
+                    done = False
 
-            generalization.append(success_rate / self.args.n_test_rollouts)
-            
-        generalization = np.array(generalization)
+                    for _ in range(self.env_params['max_timesteps']):
+                        with torch.no_grad():
+                            input_tensor = self._preproc_inputs(obs, g)
+                            pi = self.actor_network(input_tensor)
+                            # convert the actions
+                            actions = pi.detach().cpu().numpy().squeeze()
+                        try:
+                            observation_new, _, _, info = self.env.step(actions)
+                        except:
+                            eval_exception += 1
+                            print(f'Exceptions in evals : {eval_exception}')
+                            pass
+                        obs = observation_new['observation']
+                        g = observation_new['desired_goal']
+                        if info['is_success'] and not done:
+                            done = True
+                            success_rate += 1.0
+                env_multipliers = ["default"] * 3
+                generalization[i][idx] = success_rate / self.args.n_test_rollouts
+        # TODO:
         global_success_rate = MPI.COMM_WORLD.allreduce(generalization, op=MPI.SUM)
-        return global_success_rate / MPI.COMM_WORLD.Get_size()
+        global_success_rate = global_success_rate / MPI.COMM_WORLD.Get_size()
+        return global_success_rate

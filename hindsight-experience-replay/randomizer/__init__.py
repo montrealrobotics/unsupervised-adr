@@ -1,53 +1,6 @@
 from gym.envs.registration import register
 import os.path as osp
 
-register(
-    id='LunarLanderDefault-v0',
-    entry_point='randomizer.lunar_lander:LunarLanderRandomized',
-    max_episode_steps=1000,
-    kwargs={'config': 'randomizer/config/LunarLanderRandomized/default.json'}
-)
-
-register(
-    id='LunarLanderRandomized-v0',
-    entry_point='randomizer.lunar_lander:LunarLanderRandomized',
-    max_episode_steps=1000,
-    kwargs={'config': 'randomizer/config/LunarLanderRandomized/random.json'}
-)
-
-register(
-    id='Pusher3DOFDefault-v0',
-    entry_point='randomizer.pusher3dof:PusherEnv3DofEnv',
-    max_episode_steps=100,
-    kwargs={'config': 'randomizer/config/Pusher3DOFRandomized/default.json'}
-)
-
-register(
-    id='Pusher3DOFRandomized-v0',
-    entry_point='randomizer.pusher3dof:PusherEnv3DofEnv',
-    max_episode_steps=100,
-    kwargs={'config': 'randomizer/config/Pusher3DOFRandomized/random.json'}
-)
-
-register(
-    id='HumanoidRandomizedEnv-v0',
-    entry_point='randomizer.humanoid:HumanoidRandomizedEnv',
-    max_episode_steps=1000,
-    kwargs={
-        'config': 'randomizer/config/HumanoidRandomized/default.json',
-        'xml_name': 'humanoid.xml'
-    }
-)
-
-register(
-    id='HalfCheetahRandomizedEnv-v0',
-    entry_point='randomizer.half_cheetah:HalfCheetahRandomizedEnv',
-    max_episode_steps=1000,
-    kwargs={
-        'config': 'randomizer/config/HalfCheetahRandomized/default.json',
-        'xml_name': 'half_cheetah.xml'
-    }
-)
 
 register(
     id='FetchPushRandomizedEnv-v0',
@@ -61,7 +14,7 @@ register(
 register(
     id='ResidualPushRandomizedEnv-v0',
     entry_point='randomizer.randomized_residual_push:ResidualPushRandomizedEnv',
-    max_episode_steps=1000,
+    max_episode_steps=50,
     kwargs={
         'config': 'randomizer/config/ResidualPushRandomized/random.json',
         'xml_name': 'push.xml'
@@ -70,9 +23,27 @@ register(
 register(
     id='ResidualPushDefaultEnv-v0',
     entry_point='randomizer.randomized_residual_push:ResidualPushRandomizedEnv',
-    max_episode_steps=1000,
+    max_episode_steps=50,
     kwargs={
         'config': 'randomizer/config/ResidualPushRandomized/default.json',
         'xml_name': 'push.xml'
+    }
+)
+register(
+    id='TwoFrameResidualHookNoisyRandomizedEnv-v0',
+    entry_point='randomizer.randomized_residual_hook:TwoFrameResidualHookNoisyEnv',
+    max_episode_steps=100,
+    kwargs={
+        'config': 'randomizer/config/ResidualFetchHookRandomized/random.json',
+        'xml_name': 'hook.xml'
+    }
+)
+register(
+    id='TwoFrameResidualHookNoisyDefaultEnv-v0',
+    entry_point='randomizer.randomized_residual_hook:TwoFrameResidualHookNoisyEnv',
+    max_episode_steps=100,
+    kwargs={
+        'config': 'randomizer/config/ResidualFetchHookRandomized/default.json',
+        'xml_name': 'hook.xml'
     }
 )

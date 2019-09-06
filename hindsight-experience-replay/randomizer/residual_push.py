@@ -3,7 +3,7 @@ import numpy as np
 
 import xml.etree.ElementTree as et
 
-from .residual_fetch_push_env import ResidualSlipperyPushEnv
+from .residual_envs.residual_fetch_push_env import ResidualSlipperyPushEnv
 from gym.envs.robotics import rotations, robot_env, utils
 import mujoco_py
 
@@ -53,8 +53,8 @@ class RandomizedResidualPushEnv(ResidualSlipperyPushEnv):
             initial_qpos=initial_qpos)
 
         # randomization
-        self.xml_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets", "fetch")
-        self.reference_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets", "fetch",
+        self.xml_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets")
+        self.reference_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets",
                                            kwargs.get('xml_name'))
         self.reference_xml = et.parse(self.reference_path)
         self.config_file = kwargs.get('config')
@@ -82,13 +82,13 @@ class RandomizedResidualPushEnv(ResidualSlipperyPushEnv):
             self.fetch_env.env.sim.model.geom_friction[i] = [current_friction, 5.e-3, 1e-4]
 
     def _create_xml(self):
-        # self._randomize_damping()
         self._randomize_friction()
         return et.tostring(self.root, encoding='unicode', method='xml')
 
     def update_randomized_params(self):
+        self._randomize_friction()
         xml = self._create_xml()
-        # self._re_init(xml)
+        # # self._re_init(xml)
 
     def _re_init(self, xml):
         # TODO: Now, likely needs rank
@@ -105,8 +105,8 @@ class RandomizedResidualPushEnv(ResidualSlipperyPushEnv):
 
         observation, _reward, done, _info = self.step(np.zeros(4))
         assert not done
-        # if self.viewer:
-        #     self.viewer.update_sim(self.sim)
+        if self.viewer:
+            self.viewer.update_sim(self.sim)
 
     # GoalEnv methods
     # ----------------------------
@@ -251,4 +251,5 @@ class RandomizedResidualPushEnv(ResidualSlipperyPushEnv):
             self.height_offset = self.sim.data.get_site_xpos('object0')[2]
 
     def render(self, mode='human', width=500, height=500):
-        return super(RandomizedResidualPushEnv, self).render(mode)
+
+        return super(RandomizedResidualPushEnv, self).render()
