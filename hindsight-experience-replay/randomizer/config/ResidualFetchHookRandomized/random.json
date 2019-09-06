@@ -17,7 +17,7 @@
         "name": "friction",
         "default": 1,
         "multiplier_min": 0.8,
-        "multiplier_max": 1.5
+        "multiplier_max": 2.3
       }
     ]
   }
