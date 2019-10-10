@@ -77,27 +77,31 @@ class ddpg_agent:
         train the network
         """
         evals = []
+        print(MPI.COMM_WORLD.Get_size())
         rank = MPI.COMM_WORLD.Get_rank()
         comm = MPI.COMM_WORLD
+        default_dist_e = []
+        hard_dist_e = []
+        default_success_e = []
+        hard_success_e = []
         # start to collect samples
         for epoch in range(self.args.n_epochs):
-            friction_values = []
+            friction_values, hook_values, block_values = [], [], []
             alice_goals = []
             except_count = 0
             random_sp_arr = np.empty(self.args.n_cycles)
-
+            default_dist, hard_dist, default_success, hard_success = [], [], [], []
             if rank == 0:
                 random_sp_arr = np.random.random(self.args.n_cycles)
-                            
             comm.Bcast(random_sp_arr, root=0)
 
             for cycle in range(self.args.n_cycles):
                 # set, broadcast the environments here (rollout particles)
                 mb_obs, mb_ag, mb_g, mb_actions, mb_done = [], [], [], [], []
-                
+
                 is_sp_cycle = random_sp_arr[cycle] < self.args.sp_percent
 
-                if rank == 0: 
+                if rank == 0:
                     print('Epoch {} Cycle {}'.format(epoch, cycle))
 
                 for i in range(self.args.num_rollouts_per_mpi):
@@ -108,7 +112,7 @@ class ddpg_agent:
                             env_settings = adr.step_particles()
                             env_settings = np.ascontiguousarray(env_settings)
                         else:
-                            env_settings = np.empty((svpg_rollout_length, self.args.nmpi, 3))
+                            env_settings = np.empty((svpg_rollout_length, self.args.nmpi, self.args.n_param))
                         comm.Bcast(env_settings, root=0)
                         svpg_rewards = []
                     # reset the rollouts
@@ -117,27 +121,18 @@ class ddpg_agent:
                     self.env.seed(rank + epoch * cycle + i + self.args.seed)
                     # TODO: Fix with sharath
 
-                    if self.args.approach == "udr":
-                        self.env.randomize([-1, -1, -1])
-                    elif self.args.approach == "ranges_check":
-                        self.env.randomize([1, 1, 1])
-                    observation = self.env.reset()
-
-                    obs = observation['observation']
-                    ag = observation['achieved_goal']
-                    g = observation['desired_goal']
                     # start to collect samples
 
-                    if is_sp_cycle:                        
+                    if is_sp_cycle:
                         alice_done = False
                         alice_time = 0
-                        alice_state = np.concatenate([ag, np.zeros(self.env_params["goal"])])
-                        self.env.randomize(["default"] * 3)
+                        self.env.randomize(["default"] * self.args.n_param)
                         observation = self.env.reset()
 
                         obs = observation['observation']
                         ag = observation['achieved_goal']
                         g = observation['desired_goal']
+                        alice_state = np.concatenate([ag, np.zeros(self.env_params["goal"])])
                         # Alice Stopping Policy
                         while not alice_done and (alice_time < self.env_params['max_timesteps']):
                             with torch.no_grad():
@@ -168,16 +163,23 @@ class ddpg_agent:
                                 ag = ag_new
 
                         # Bob's policy
-                        block_mass_multiplier = np.clip(env_settings[svpg_index][rank][0], 0, 1.0)
-                        hook_mass_multiplier = np.clip(env_settings[svpg_index][rank][1], 0, 1.0)
-                        friction_multiplier = np.clip(env_settings[svpg_index][rank][2], 0, 1.0)
-                        friction_values.append(friction_multiplier)
-                        self.env.randomize([block_mass_multiplier, hook_mass_multiplier, friction_multiplier])
+                        if self.args.n_param == 1:
+                            friction_multiplier = np.clip(env_settings[svpg_index][rank][0], 0, 1.0)
+                            friction_values.append(friction_multiplier)
+                            self.env.randomize([friction_multiplier])
+                        elif self.args.n_param == 3:
+                            block_mass_multiplier = np.clip(env_settings[svpg_index][rank][0], 0, 1.0)
+                            hook_mass_multiplier = np.clip(env_settings[svpg_index][rank][1], 0, 1.0)
+                            friction_multiplier = np.clip(env_settings[svpg_index][rank][2], 0, 1.0)
+                            friction_values.append(friction_multiplier)
+                            hook_values.append(hook_mass_multiplier)
+                            block_values.append(block_mass_multiplier)
+                            self.env.randomize([block_mass_multiplier, hook_mass_multiplier, friction_multiplier])
                         observation = self.env.reset()
                         self.env.seed(rank + epoch * cycle + i + self.args.seed)
                         obs = observation['observation']
                         ag = observation['achieved_goal']
-                        
+
                         if rank == 0:
                             alice_goals.append(bobs_goal_state)
                         bob_state = np.concatenate([obs, bobs_goal_state])
@@ -202,7 +204,7 @@ class ddpg_agent:
                             if not bob_done:
                                 bob_state[:self.env_params["goal"]] = ag_new
                                 bob_time += 1
-                                
+
                             obs_new = observation_new['observation']
                             ag_new = observation_new['achieved_goal']
 
@@ -211,7 +213,7 @@ class ddpg_agent:
                             ep_ag.append(ag.copy())
                             ep_g.append(g.copy())
                             ep_actions.append(action.copy())
-                            
+
                             obs = obs_new
                             ag = ag_new
                         ep_obs.append(obs.copy())
@@ -220,7 +222,7 @@ class ddpg_agent:
                         mb_ag.append(ep_ag)
                         mb_g.append(ep_g)
                         mb_actions.append(ep_actions)
-                        
+
                         reward_alice = self.args.sp_gamma * max(0, bob_time - alice_time)
                         svpg_rewards.append(reward_alice)
                         self.alice_policy.log(reward_alice)
@@ -232,7 +234,7 @@ class ddpg_agent:
                                 all_rewards = np.zeros((self.args.nmpi, svpg_rollout_length))
 
                             comm.Gather(np.array(svpg_rewards), all_rewards, root=0)
-                            
+
                             if rank == 0:
                                 adr._train_particles(all_rewards)
 
@@ -243,8 +245,13 @@ class ddpg_agent:
 
                             # Trick to sync
                             comm.Bcast(wait_hack, root=0)
-                        
+
                     else:
+                        self.env.randomize([-1] * self.args.n_param)
+                        observation = self.env.reset()
+                        obs = observation['observation']
+                        ag = observation['achieved_goal']
+                        g = observation['desired_goal']
                         for t in range(self.env_params['max_timesteps']):
                             with torch.no_grad():
                                 input_tensor = self._preproc_inputs(obs, g)
@@ -274,6 +281,7 @@ class ddpg_agent:
                         mb_ag.append(ep_ag)
                         mb_g.append(ep_g)
                         mb_actions.append(ep_actions)
+
                 # convert them into arrays
                 mb_obs = np.array(mb_obs)
                 mb_ag = np.array(mb_ag)
@@ -290,16 +298,33 @@ class ddpg_agent:
                 # soft update
                 self._soft_update_target_network(self.actor_target_network, self.actor_network)
                 self._soft_update_target_network(self.critic_target_network, self.critic_network)
+                success_rate_default, average_dist_default = self._eval_default_env(default=True)
+                success_rate_hard, average_dist_hard = self._eval_default_env(default=False)
+                default_dist.append(average_dist_default)
+                hard_dist.append(average_dist_hard)
+                default_success.append(success_rate_default)
+                hard_success.append(success_rate_hard)
 
             # start to do the evaluation
             success_rate = self._eval_agent()
-            np.save(osp.join(self.model_path, 'alice_envs_Ep{}_R{}.npy'.format(epoch, rank)), friction_values)
+
+            np.savez(osp.join(self.model_path, 'adr-sampling_Ep_{}_R{}.npz'.format(epoch, rank)), friction=friction_values,
+                     hook_mass=hook_values
+                     , block_mass=block_values)
+
             if MPI.COMM_WORLD.Get_rank() == 0:
+                default_dist_e.append(default_dist)
+                hard_dist_e.append(hard_dist)
+                default_success_e.append(default_success)
+                hard_success_e.append(hard_success)
                 print('[{}] epoch is: {}, eval success rate is: {}'.format(datetime.now(), epoch, success_rate))
                 evals.append(success_rate)
-                np.save(osp.join(self.model_path, 'evals.npy'), evals)
+                np.save(osp.join(self.model_path, 'success_rates.npy'), evals)
+                np.savez(osp.join(self.model_path, 'evaluations.npz'), default_success=default_success_e,
+                         default_dist=default_dist_e, hard_success=hard_success_e, hard_dist=hard_dist_e)
+
                 np.save(osp.join(self.model_path, 'alice_goals_Ep{}.npy'.format(epoch)), alice_goals)
-                
+
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
                             self.actor_network.state_dict()], self.model_path + '/model.pt')
     # pre_process the inputs
@@ -429,10 +454,50 @@ class ddpg_agent:
         sync_grads(self.critic_network)
         self.critic_optim.step()
 
+
+    @staticmethod
+    def _goal_distance(achieved_goal, desired_goal):
+        return np.linalg.norm(achieved_goal - desired_goal)
+
+    def _eval_default_env(self, default=True):
+        if default:
+            self.env.randomize(["default"] * self.args.n_param)
+        else:
+            self.env.randomize([1, 1, 0.1])
+        success_rate = 0
+        average_distance = 0
+        for _ in range(self.args.n_test_rollouts):
+            observation = self.env.reset()
+            obs = observation['observation']
+            g = observation['desired_goal']
+            done = False
+
+            for _ in range(self.env_params['max_timesteps']):
+                with torch.no_grad():
+                    input_tensor = self._preproc_inputs(obs, g)
+                    pi = self.actor_network(input_tensor)
+                    # convert the actions
+                    actions = pi.detach().cpu().numpy().squeeze()
+                try:
+                    observation_new, _, _, info = self.env.step(actions)
+                except:
+                    pass
+
+                obs = observation_new['observation']
+                ag = observation_new['achieved_goal']
+                average_distance += self._goal_distance(ag, g)
+                if info['is_success'] and not done:
+                    done = True
+                    success_rate += 1.0
+
+        success_rate /= self.args.n_test_rollouts
+        average_distance /= self.args.n_test_rollouts
+        return success_rate, average_distance
+
     # do the evaluation
     def _eval_agent(self):
-        generalization = np.zeros((3, 10))
-        env_multipliers = ["default"] * 3
+        generalization = np.zeros((self.args.n_param, 10))
+        env_multipliers = ["default"] * self.args.n_param
         eval_exception = 0
         for idx, multiplier in enumerate(np.linspace(0.05, 1, 10)):
             for i in range(len(env_multipliers)):
@@ -464,9 +529,8 @@ class ddpg_agent:
                         if info['is_success'] and not done:
                             done = True
                             success_rate += 1.0
-                env_multipliers = ["default"] * 3
+                env_multipliers = ["default"] * self.args.n_param
                 generalization[i][idx] = success_rate / self.args.n_test_rollouts
-        # TODO:
         global_success_rate = MPI.COMM_WORLD.allreduce(generalization, op=MPI.SUM)
         global_success_rate = global_success_rate / MPI.COMM_WORLD.Get_size()
         return global_success_rate

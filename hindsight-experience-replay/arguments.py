@@ -7,7 +7,7 @@ Here are the param for the training
 def get_args():
     parser = argparse.ArgumentParser()
     # the environment setting
-    parser.add_argument('--env-name', type=str, default='TwoFrameResidualHookNoisyRandomizedEnv-v0', help='the environment name')
+    parser.add_argument('--env-name', type=str, default='FetchPushRandomizedEnv-v0', help='the environment name')
     parser.add_argument('--n-epochs', type=int, default=50, help='the number of epochs to train the agent')
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
     parser.add_argument('--n-batches', type=int, default=40, help='the times to update the network')
@@ -40,6 +40,7 @@ def get_args():
     parser.add_argument('--approach', type=str, default='baseline', help='Different approaches for experiments')
     parser.add_argument('--svpg-rollout-length', type=int, default=5)
     parser.add_argument('--nmpi', type=int, default=8) # TODO!
+    parser.add_argument('--n-param', type=int, default=1)
 
     args = parser.parse_args()
 
