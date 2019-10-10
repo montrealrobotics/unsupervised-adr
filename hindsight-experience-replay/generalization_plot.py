@@ -20,6 +20,7 @@ def sampling_plot(sampling, sp_index, approach='adr'):
         for s in SEED:
             save_dir = osp.join(args.save_dir, "sp" + str(sp_index) + "polyak" +
                                 str(args.polyak) + '-' + str(approach), str(s), args.env_name + '/')
+            print(save_dir)
             list_ = []
             for rank in range(8):
                 alice_envs = np.load(save_dir + f'adr-sampling_Ep_{e}_R{rank}.npz')
@@ -38,6 +39,7 @@ def genelarization(approach, parameter, selplay_index, epoch=-1):
     for s in SEED:
         save_dir = osp.join(args.save_dir, "sp" + str(sp[selplay_index]) + "polyak" +
                             str(args.polyak) + '-' + str(approach), str(s), args.env_name + '/')
+
         evals = np.load(os.getcwd() + '/' + save_dir + 'success_rates.npy')
         last_eval = evals[epoch]
         evaluations.append(last_eval[parameter][:])
@@ -55,38 +57,38 @@ if __name__ == '__main__':
     x_gen_labels = np.linspace(0, 50, 1)
     epoch = [0, 9, 19, 29, 39, 49]
     sp = [0.0, 0.5, 1.0]
-    approach = ['udr', "adr", "adr"]
+    approach = ["adr"]
     # PARAMETERS = ["Mass of block", "Mass of hook", "Friction"]
     PARAMETERS = ['Friction']
     plot_type = ['dashed','dashdot', 'solid', '--', ':', '--', '-']
     PLOTCOLORS = ['darkmagenta', 'orange', 'red', 'darkolivegreen', 'hotpink', 'blue']
     # alice_sampling = ['block_mass', 'hook_mass', 'friction']
     alice_sampling = ['friction']
-    SEED = [20, 22, 23, 24]
+    SEED = [20, 21, 22, 23, 24]
 
     ######## Plot generalization curve ########
 
     for i, param in enumerate(PARAMETERS):
         fig, axes = plt.subplots(1, 2)
         for j, e in enumerate(epoch):
-            evaluations_mean, evaluations_std = genelarization('adr', i, 1, epoch=e)
+            evaluations_mean, evaluations_std = genelarization('adr', i, 0, epoch=e)
             axes[0].plot(xlabels, evaluations_mean, label=f'Epoch : {e}', color=PLOTCOLORS[j], alpha=0.7)
             axes[0].fill_between(xlabels, evaluations_mean - evaluations_std / 2, evaluations_mean + evaluations_std / 2,
                              alpha=0.05, color=PLOTCOLORS[j])
 
             axes[0].set_xlabel("Multipliers")
             axes[0].set_ylabel("Success Rate")
-            axes[0].set_title(f"{param} Generalization for FetchPush Environment")
+            axes[0].set_title(f"{param} Generalization for FetchSlide Environment")
             axes[0].legend()
-        # values = sampling_plot(alice_sampling[i], sp_index=sp[-1], approach='adr')
-        # axes[1].hist(values, stacked=True, label=['Epoch :' + str(e) for e in epoch], color=PLOTCOLORS[0:6], alpha=0.4)
-        # axes[1].legend()
-        # axes[1].set_xlabel("Multipliers")
-        # axes[1].set_ylabel("Frequency")
-        # axes[1].set_title(f'{param} sampling frequency over time')
+        values = sampling_plot(alice_sampling[i], sp_index=sp[0], approach='adr')
+        axes[1].hist(values, stacked=True, label=['Epoch :' + str(e) for e in epoch], color=PLOTCOLORS[0:6], alpha=0.4)
+        axes[1].legend()
+        axes[1].set_xlabel("Multipliers")
+        axes[1].set_ylabel("Frequency")
+        axes[1].set_title(f'{param} sampling frequency over time')
 
-        # plt.show()
-        plt.clf()   
+        plt.show()
+        plt.clf()
         plt.close()
     for j, app in enumerate(approach):
         print(app)
@@ -96,40 +98,11 @@ if __name__ == '__main__':
         plt.fill_between(xlabels, udr_gen - udr_std, udr_gen + udr_std, alpha=0.2)
 
     plt.legend()
+    plt.title('Friction generalization for FetchSlide')
     plt.xlabel("Multipliers")
     plt.ylabel("Success Rate")
     # plt.ylim(0, 1.2)
     plt.show()
 
-    ######## Plot learning curve ########
-    learning_params = ["Default Env Success", "Default Env Average Distance", "Hard Env Success", "Hard Env Average Distance"]
-    save_dir = osp.join(args.save_dir, "sp" + str(sp[0]) + "polyak" +
-                        str(args.polyak) + '-' + str(approach[0]), str(24), args.env_name + '/')
-    learning = np.load(os.getcwd() + '/' + save_dir + 'evaluations.npz')
-    for i, keys in enumerate(learning.keys()):
-        for idx, app in enumerate(approach):
-            learnings = []
-            for s in SEED:
-                save_dir = osp.join(args.save_dir, "sp" + str(sp[idx]) + "polyak" +
-                                    str(args.polyak) + '-' + str(approach[idx]), str(s), args.env_name + '/')
-                learning = np.load(os.getcwd() + '/' + save_dir + 'evaluations.npz')
-                key = learning[keys]
-                learnings.append(key)
-            learnings_mean = np.mean(learnings, axis=0)
-            learnings_std = np.reshape(np.std(learnings, axis=0), (-1))
-            y = np.convolve(np.reshape(learnings_mean, (-1)), np.ones(10) / 10)
-            plt.plot(xlabel_learning, y[5:2505], label= f"{app} :{keys}", color=PLOTCOLORS[idx])
-            # plt.fill_between(xlabel_learning, np.reshape(learnings_mean, (-1))
-            #                  - learnings_std / 2, np.reshape(learnings_mean, (-1)) + learnings_std / 2,
-            #                  facecolor=PLOTCOLORS[idx], alpha=0.8)
-            plt.xlim(0, 50)
-            plt.title(f"Learning curve (Noisyhook Environment) : {learning_params[i]}")
-            plt.xlabel("Epoch")
-            plt.ylabel(f'{learning_params[i]}')
-            plt.legend()
-        # plt.savefig(f'{keys}.png')
-        # plt.show()
-        # plt.clf()
-    plt.close()
 
 
