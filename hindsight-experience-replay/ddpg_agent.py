@@ -77,7 +77,6 @@ class ddpg_agent:
         train the network
         """
         evals = []
-        print(MPI.COMM_WORLD.Get_size())
         rank = MPI.COMM_WORLD.Get_rank()
         comm = MPI.COMM_WORLD
         default_dist_e = []
@@ -190,6 +189,7 @@ class ddpg_agent:
                                 input_tensor = self._preproc_inputs(obs, bobs_goal_state)
                                 pi = self.actor_network(input_tensor)
                                 action = self._select_actions(pi)
+
                             try:
                                 observation_new, reward, env_done, _ = self.env.step(action)
                             except:
@@ -463,7 +463,7 @@ class ddpg_agent:
         if default:
             self.env.randomize(["default"] * self.args.n_param)
         else:
-            self.env.randomize([1, 1, 0.1])
+            self.env.randomize([0.25])
         success_rate = 0
         average_distance = 0
         for _ in range(self.args.n_test_rollouts):
