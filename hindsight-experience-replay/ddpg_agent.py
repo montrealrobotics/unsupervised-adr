@@ -44,7 +44,8 @@ class ddpg_agent:
         self.actor_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
         self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
         # her sampler
-        self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward, is_her=False)
+        self.is_her = False
+        self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward, is_her=self.is_her)
         # create the replay buffer
         self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions)
         self.replay_buffer = ReplayBufferSelfPlay(capacity=int(1e6))
@@ -418,12 +419,14 @@ class ddpg_agent:
         inputs_norm_tensor = torch.tensor(inputs_norm, dtype=torch.float32)
         inputs_next_norm_tensor = torch.tensor(inputs_next_norm, dtype=torch.float32)
         actions_tensor = torch.tensor(transitions['actions'], dtype=torch.float32)
-        r_tensor = torch.tensor(transitions['r'], dtype=torch.float32)
+        if self.is_her:
+            r_tensor = torch.tensor(transitions['r'], dtype=torch.float32)
         if self.args.cuda:
             inputs_norm_tensor = inputs_norm_tensor.cuda()
             inputs_next_norm_tensor = inputs_next_norm_tensor.cuda()
             actions_tensor = actions_tensor.cuda()
-            r_tensor = r_tensor.cuda()
+            if self.is_her:
+                r_tensor = r_tensor.cuda()
         # calculate the target Q value function
         with torch.no_grad():
             # do the normalization
@@ -431,7 +434,10 @@ class ddpg_agent:
             actions_next = self.actor_target_network(inputs_next_norm_tensor)
             q_next_value = self.critic_target_network(inputs_next_norm_tensor, actions_next)
             q_next_value = q_next_value.detach()
-            target_q_value = r_tensor + self.args.gamma * q_next_value
+            if self.is_her:
+                target_q_value = r_tensor + self.args.gamma * q_next_value
+            else:
+                target_q_value = self.args.gamma * q_next_value
             target_q_value = target_q_value.detach()
             # clip the q value
             clip_return = 1 / (1 - self.args.gamma)

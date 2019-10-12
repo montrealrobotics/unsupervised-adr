@@ -1,7 +1,7 @@
 import numpy as np
 
 class her_sampler:
-    def __init__(self, replay_strategy, replay_k, is_her=True, reward_func=None):
+    def __init__(self, replay_strategy, replay_k, reward_func=None, is_her=True):
         self.replay_strategy = replay_strategy
         self.replay_k = replay_k
         self.is_her = is_her
