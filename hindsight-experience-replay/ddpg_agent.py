@@ -44,7 +44,7 @@ class ddpg_agent:
         self.actor_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
         self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
         # her sampler
-        self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
+        self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward, is_her=False)
         # create the replay buffer
         self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions)
         self.replay_buffer = ReplayBufferSelfPlay(capacity=int(1e6))
