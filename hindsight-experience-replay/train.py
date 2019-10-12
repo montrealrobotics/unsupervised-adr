@@ -9,6 +9,7 @@ import random
 import torch
 
 from adr.adr import ADR
+import gym_ergojr
 from randomizer.wrappers import RandomizedEnvWrapper
 
 
@@ -27,17 +28,30 @@ def get_env_params(env):
     params['max_timesteps'] = env._max_episode_steps
     return params
 
+
+def get_rank():
+    rank = MPI.COMM_WORLD.Get_rank()
+    return rank
+
+
 def launch(args):
     # create the ddpg_agent
-    rank = MPI.COMM_WORLD.Get_rank()
-    
+    rank = get_rank()
+    # print(f"Rank in her : {rank}")
+    jobid = os.environ['SLURM_ARRAY_TASK_ID']
     env = gym.make(args.env_name)
     # get the environment parameters
     env_params = get_env_params(env)
-    
+    # print(jobid)
+    seed = [20, 21, 22, 23, 24] * 2
+    seed.sort()
+    sp_percent = [0.0, 0.5] * 5
+    args.sp_percent = sp_percent[int(jobid) - 1]
     # set random seeds for reproduce
+    args.seed = seed[int(jobid) - 1]
     env.seed(args.seed + rank)
-
+    approach = ['udr', 'adr'] * 5
+    args.approach = approach[int(jobid) - 1]
     env = RandomizedEnvWrapper(env, seed=args.seed + rank)
 
     random.seed(args.seed + rank)
@@ -55,7 +69,7 @@ def launch(args):
     if rank == 0:
         adr = ADR(
             nparticles=MPI.COMM_WORLD.Get_size(),
-            nparams=3,
+            nparams=args.n_param,
             state_dim=1,
             action_dim=1,
             temperature=10,

@@ -52,8 +52,8 @@ class RandomizedFetchEnv(robot_env.RobotEnv):
             initial_qpos=initial_qpos)
 
         # randomization
-        self.xml_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets", "fetch")
-        self.reference_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets", "fetch", kwargs.get('xml_name'))
+        self.xml_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets")
+        self.reference_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets", kwargs.get('xml_name'))
         self.reference_xml = et.parse(self.reference_path)
         self.config_file = kwargs.get('config')
         self.dimensions = []
@@ -72,13 +72,19 @@ class RandomizedFetchEnv(robot_env.RobotEnv):
         for joint in self.object_joints:
             joint.set('damping', '{:3f}'.format(damping))
 
+    def _randomize_friction(self):
+        current_friction = self.dimensions[0].current_value
+        for i in range(len(self.sim.model.geom_friction)):
+            self.sim.model.geom_friction[i] = [current_friction, 5.e-3, 1e-4]
+
     def _create_xml(self):
         self._randomize_damping()
         return et.tostring(self.root, encoding='unicode', method='xml')
 
     def update_randomized_params(self):
+        self._randomize_friction()
         xml = self._create_xml()
-        self._re_init(xml)
+        # self._re_init(xml)
 
     def _re_init(self, xml):
         # TODO: Now, likely needs rank

@@ -1,0 +1,11 @@
+{
+    "env": "FetchPushDefault-v0",
+    "dimensions": [
+      {
+        "name": "friction",
+        "default": 0.18,
+        "multiplier_min": 0.2,
+        "multiplier_max": 2.22
+      }
+    ]
+  }

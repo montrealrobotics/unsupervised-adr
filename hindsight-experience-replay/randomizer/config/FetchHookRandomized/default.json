@@ -3,22 +3,21 @@
     "dimensions": [
       {
         "name": "block_mass",
-        "default": 2,
-        "multiplier_min": 0.3,
-        "multiplier_max": 4
+        "default": 4,
+        "multiplier_min": 1.0,
+        "multiplier_max": 1.0
       },
       {
         "name": "hook_mass",
         "default": 4,
-        "multiplier_min": 0.6,
-        "multiplier_max": 2.5
+        "multiplier_min": 1.0,
+        "multiplier_max": 1.0
       },
       {
         "name": "friction",
         "default": 1,
-        "multiplier_min": 0.5,
-        "multiplier_max": 1.2
+        "multiplier_min": 1.0,
+        "multiplier_max": 1.0
       }
     ]
   }
-  

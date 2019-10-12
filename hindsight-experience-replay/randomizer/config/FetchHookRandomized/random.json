@@ -4,7 +4,7 @@
       {
         "name": "block_mass",
         "default": 2,
-        "multiplier_min": 0.3,
+        "multiplier_min": 0.6,
         "multiplier_max": 4
       },
       {

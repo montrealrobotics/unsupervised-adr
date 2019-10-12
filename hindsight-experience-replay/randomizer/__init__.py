@@ -5,45 +5,56 @@ import os.path as osp
 register(
     id='FetchPushRandomizedEnv-v0',
     entry_point='randomizer.randomized_fetchpush:FetchPushRandomizedEnv',
-    max_episode_steps=1000,
-    kwargs={
-        'config': 'randomizer/config/FetchPushRandomized/default.json',
-        'xml_name': 'push.xml'
-    }
-)
-register(
-    id='ResidualPushRandomizedEnv-v0',
-    entry_point='randomizer.randomized_residual_push:ResidualPushRandomizedEnv',
     max_episode_steps=50,
     kwargs={
-        'config': 'randomizer/config/ResidualPushRandomized/random.json',
+        'config': 'randomizer/config/FetchPushRandomized/random.json',
         'xml_name': 'push.xml'
     }
 )
 register(
-    id='ResidualPushDefaultEnv-v0',
-    entry_point='randomizer.randomized_residual_push:ResidualPushRandomizedEnv',
+    id='FetchSlideRandomizedEnv-v0',
+    entry_point='randomizer.randomized_fetchslide:FetchSlideRandomizedEnv',
     max_episode_steps=50,
     kwargs={
-        'config': 'randomizer/config/ResidualPushRandomized/default.json',
-        'xml_name': 'push.xml'
+        'config': 'randomizer/config/FetchSlideRandomized/random.json',
+        'xml_name': 'slide.xml'
     }
 )
+
 register(
-    id='TwoFrameResidualHookNoisyRandomizedEnv-v0',
-    entry_point='randomizer.randomized_residual_hook:TwoFrameResidualHookNoisyEnv',
+    id='FetchHookRandomizedEnv-v0',
+    entry_point='randomizer.randomized_residual_hook:FetchHookEnv',
     max_episode_steps=100,
     kwargs={
-        'config': 'randomizer/config/ResidualFetchHookRandomized/random.json',
+        'config': 'randomizer/config/FetchHookRandomized/random.json',
         'xml_name': 'hook.xml'
     }
 )
 register(
-    id='TwoFrameResidualHookNoisyDefaultEnv-v0',
-    entry_point='randomizer.randomized_residual_hook:TwoFrameResidualHookNoisyEnv',
+    id='FetchHookDefaultEnv-v0',
+    entry_point='randomizer.randomized_residual_hook:FetchHookEnv',
     max_episode_steps=100,
     kwargs={
-        'config': 'randomizer/config/ResidualFetchHookRandomized/default.json',
+        'config': 'randomizer/config/FetchHookRandomized/default.json',
         'xml_name': 'hook.xml'
     }
 )
+register(
+    id='ErgoPushRandomizedEnv-Headless-v0',
+    entry_point='randomizer.randomized_ergo_pusher:ErgoPusherRandomizedEnv',
+    max_episode_steps=100,
+    kwargs={
+        'config': 'randomizer/config/ErgoPushRandomized/random.json',
+        'headless': True
+    }
+)
+register(
+    id='ErgoPushRandomizedEnv-Graphical-v0',
+    entry_point='randomizer.randomized_ergo_pusher:ErgoPusherRandomizedEnv',
+    max_episode_steps=100,
+    kwargs={
+        'config': 'randomizer/config/ErgoPushRandomized/random.json',
+        'headless': False
+    }
+)
+

@@ -34,7 +34,6 @@ class FetchHookEnv(fetch_env.FetchEnv, utils.EzPickle):
         self.config_file = kwargs.get('config')
         self.dimensions = []
         utils.EzPickle.__init__(self)
-
     def _randomize_block_mass(self):
         block_mass = self.dimensions[0].current_value
         self.sim.model.body_mass[-2] = block_mass
@@ -46,7 +45,8 @@ class FetchHookEnv(fetch_env.FetchEnv, utils.EzPickle):
     def _randomize_friction(self):
         current_friction = self.dimensions[2].current_value
         for i in range(len(self.sim.model.geom_friction)):
-            self.sim.model.geom_friction[i] = [current_friction, 5.e-3, 1e-4]
+            self.sim.model.geom_friction[i][0] = current_friction
+
 
     def update_randomized_params(self):
         self._randomize_block_mass()
