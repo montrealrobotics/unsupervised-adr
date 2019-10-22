@@ -4,7 +4,7 @@ import os, sys
 from arguments import get_args
 from mpi4py import MPI
 from subprocess import CalledProcessError
-from ddpg_agent import ddpg_agent
+from ddpg_her import ddpg_agent
 import random
 import torch
 
@@ -38,20 +38,20 @@ def launch(args):
     # create the ddpg_agent
     rank = get_rank()
     # print(f"Rank in her : {rank}")
-    jobid = os.environ['SLURM_ARRAY_TASK_ID']
+    # jobid = os.environ['SLURM_ARRAY_TASK_ID']
     env = gym.make(args.env_name)
     # get the environment parameters
     env_params = get_env_params(env)
     # print(jobid)
-    seed = [20, 21, 22, 23, 24] * 2
-    seed.sort()
-    sp_percent = [0.0, 0.5] * 5
-    args.sp_percent = sp_percent[int(jobid) - 1]
+    # seed = [20, 21, 22, 23, 24] * 2
+    # seed.sort()
+    # sp_percent = [0.0, 0.5] * 5
+    # args.sp_percent = sp_percent[int(jobid) - 1]
     # set random seeds for reproduce
-    args.seed = seed[int(jobid) - 1]
+    # args.seed = seed[int(jobid) - 1]
     env.seed(args.seed + rank)
-    approach = ['udr', 'adr'] * 5
-    args.approach = approach[int(jobid) - 1]
+    # approach = ['udr', 'adr'] * 5
+    # args.approach = approach[int(jobid) - 1]
     env = RandomizedEnvWrapper(env, seed=args.seed + rank)
 
     random.seed(args.seed + rank)
