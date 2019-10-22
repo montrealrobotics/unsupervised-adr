@@ -56,31 +56,31 @@ if __name__ == '__main__':
     xlabel_learning = np.linspace(1, 50, 2500)
     x_gen_labels = np.linspace(0, 50, 1)
     epoch = [0, 9, 19, 29, 39, 49]
-    sp = [0.0, 0.5, 1.0]
-    approach = ["adr"]
+    sp = [0.0, 0.5]
+    approach = ["udr", "adr"]
     # PARAMETERS = ["Mass of block", "Mass of hook", "Friction"]
     PARAMETERS = ['Friction']
     plot_type = ['dashed','dashdot', 'solid', '--', ':', '--', '-']
     PLOTCOLORS = ['darkmagenta', 'orange', 'red', 'darkolivegreen', 'hotpink', 'blue']
     # alice_sampling = ['block_mass', 'hook_mass', 'friction']
     alice_sampling = ['friction']
-    SEED = [20, 21, 22, 23, 24]
+    SEED = [1, 2, 3, 4]
 
     ######## Plot generalization curve ########
 
     for i, param in enumerate(PARAMETERS):
         fig, axes = plt.subplots(1, 2)
         for j, e in enumerate(epoch):
-            evaluations_mean, evaluations_std = genelarization('adr', i, 0, epoch=e)
+            evaluations_mean, evaluations_std = genelarization('adr', i, 1, epoch=e)
             axes[0].plot(xlabels, evaluations_mean, label=f'Epoch : {e}', color=PLOTCOLORS[j], alpha=0.7)
             axes[0].fill_between(xlabels, evaluations_mean - evaluations_std / 2, evaluations_mean + evaluations_std / 2,
                              alpha=0.05, color=PLOTCOLORS[j])
 
             axes[0].set_xlabel("Multipliers")
             axes[0].set_ylabel("Success Rate")
-            axes[0].set_title(f"{param} Generalization for FetchSlide Environment")
+            axes[0].set_title(f"{param} Generalization for {args.env_name} Environment")
             axes[0].legend()
-        values = sampling_plot(alice_sampling[i], sp_index=sp[0], approach='adr')
+        values = sampling_plot(alice_sampling[i], sp_index=sp[1], approach='adr')
         axes[1].hist(values, stacked=True, label=['Epoch :' + str(e) for e in epoch], color=PLOTCOLORS[0:6], alpha=0.4)
         axes[1].legend()
         axes[1].set_xlabel("Multipliers")
@@ -90,19 +90,19 @@ if __name__ == '__main__':
         plt.show()
         plt.clf()
         plt.close()
-    for j, app in enumerate(approach):
-        print(app)
-        udr_gen, udr_std = genelarization(app, 0, j, epoch=-1)
+    for i, param in enumerate(PARAMETERS):
+        for j, app in enumerate(approach):
+            udr_gen, udr_std = genelarization(app, i, j, epoch=-1)
 
-        plt.plot(xlabels, udr_gen, alpha=0.7, label=f'{app} - sp{sp[j]}')
-        plt.fill_between(xlabels, udr_gen - udr_std, udr_gen + udr_std, alpha=0.2)
+            plt.plot(xlabels, udr_gen, alpha=0.7, label=f'{app} - sp{sp[j]}')
+            plt.fill_between(xlabels, udr_gen - udr_std, udr_gen + udr_std, alpha=0.2)
 
-    plt.legend()
-    plt.title('Friction generalization for FetchSlide')
-    plt.xlabel("Multipliers")
-    plt.ylabel("Success Rate")
-    # plt.ylim(0, 1.2)
-    plt.show()
+        plt.legend()
+        plt.title(f'{param} for {args.env_name}')
+        plt.xlabel("Multipliers")
+        plt.ylabel("Success Rate")
+        # plt.ylim(0, 1.2)
+        plt.show()
 
 
 
