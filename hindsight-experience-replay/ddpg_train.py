@@ -9,7 +9,8 @@ import TD3
 import OurDDPG
 import DDPG
 from randomizer.wrappers import RandomizedEnvWrapper
-
+from adr.adr import ADR
+import multiprocessing as mp
 
 
 # Runs policy for X episodes and returns average reward
@@ -60,7 +61,13 @@ if __name__ == "__main__":
     parser.add_argument("--policy_noise", default=0.2, type=float)  # Noise added to target policy during critic update
     parser.add_argument("--noise_clip", default=0.5, type=float)  # Range to clip target policy noise
     parser.add_argument("--policy_freq", default=2, type=int)  # Frequency of delayed policy updates
+    parser.add_argument("--nparticles", default=1, type=int)
+    parser.add_argument('--svpg-rollout-length', type=int, default=5)
+    parser.add_argument('--sp-percent', type=float, default=0.1, help='Self Play Percentage')
+    parser.add_argument('--n-param', type=int, default=1)
+
     args = parser.parse_args()
+
 
     file_name = "%s_%s_%s" % (args.policy_name, args.env_name, str(args.seed))
     print("---------------------------------------")
@@ -74,19 +81,21 @@ if __name__ == "__main__":
         os.makedirs("./pytorch_models")
 
     env = gym.make(args.env_name)
-
+    env_param = get_env_params()
     jobid = os.environ['SLURM_ARRAY_TASK_ID']
     args.seed += int(jobid)
     # Set seeds
     env.seed(args.seed)
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
+    args.nparticles = mp.cpu_count() - 1
 
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
     goal_dim = state_dim[8:].shape[0]
     env = RandomizedEnvWrapper(env, seed=args.seed)
+    svpg_rewards = []
 
     # Initialize policy
     if args.policy_name == "TD3":
@@ -105,6 +114,21 @@ if __name__ == "__main__":
     timesteps_since_eval = 0
     episode_num = 0
     done = True
+    # ADR integration
+    adr = ADR(
+        nparticles=mp.cpu_count() - 1,
+        nparams=args.n_param,
+        state_dim=1,
+        action_dim=1,
+        temperature=10,
+        svpg_rollout_length=args.svpg_rollout_length,
+        svpg_horizon=25,
+        max_step_length=0.05,
+        reward_scale=1,
+        initial_svpg_steps=0,
+        seed=args.seed,
+        discriminator_batchsz=320,
+    )
 
     while total_timesteps < args.max_timesteps:
 
@@ -135,13 +159,23 @@ if __name__ == "__main__":
             episode_reward = 0
             episode_timesteps = 0
             episode_num += 1
+        env_settings = adr.step_particles()
 
-        if np.random.random() < args.sp_percent:
+        if np.random.random() < args.sp_percent:  # Self-play loop
+            env.randomize(["default"] * args.n_params)
+            bobs_goal_state, alice_time = policy.alice_loop(args, env, env_param)  # Alice Loop
 
-            bobs_goal_state, alice_time = policy.alice_loop(args, env)  # Alice Loop
-            bob_time = policy.bob_loop(env, bobs_goal_state, alice_time, replay_buffer)  # Bob Loop
-            policy.train_alice(alice_time, bob_time)  # Train alice
+            multiplier = np.clip(env_settings[0], 0, 1.0)
+            env.randomize([multiplier])  # Randomize the env for bob
 
+            bob_time, done = policy.bob_loop(env, bobs_goal_state, alice_time, replay_buffer)  # Bob Loop
+            alice_reward = policy.train_alice(alice_time, bob_time)  # Train alice
+            svpg_rewards.append(alice_reward)
+            if (total_timesteps + 1) % args.svpg_rollout_length == 0:  # ADR training
+                all_rewards = np.asarray(svpg_rewards)
+                all_rewards = np.reshape(all_rewards, (args.nparticles, args.svpg_rollout_length))
+                adr._train_particles(all_rewards)
+                svpg_rewards = []
         else:
             # Select action randomly or according to policy
             if total_timesteps < args.start_timesteps:
