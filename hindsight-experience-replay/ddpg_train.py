@@ -13,36 +13,33 @@ import multiprocessing as mp
 
 
 # Runs policy for X episodes and returns average reward
-def evaluate_policy(policy, eval_episodes=10):
+def evaluate_policy(policy, default, eval_episodes=10):
     avg_reward = 0.
     avg_default_dist = 0
-    avg_hard_dist = 0
+    if default:
+        env.randomize(["default"])
+    else:
+        env.randomize([0.1])
     for _ in range(eval_episodes):
         obs = env.reset()
         done = False
         while not done:
             action = policy.select_action(np.array(obs))
             obs, reward, done, _ = env.step(action)
-            avg_default_dist += distance_evaluation(obs, default=True)
-            avg_hard_dist += distance_evaluation(obs, default=False)
+            avg_default_dist += distance_evaluation(obs)
             avg_reward += reward
 
     avg_reward /= eval_episodes
     avg_default_dist /= eval_episodes
-    avg_hard_dist /= eval_episodes
 
     print("---------------------------------------")
     print("Evaluation over %d episodes: %f" % (eval_episodes, avg_reward))
     print("---------------------------------------")
-    return avg_reward, avg_default_dist, avg_hard_dist
+    return avg_reward, avg_default_dist
 
-def distance_evaluation(obs, default=True):
+def distance_evaluation(obs):
     ag = obs[6:8]
     g = obs[8:]
-    if default:
-        env.randomize(["default"])
-    else:
-        env.randomize([0.9])
     return np.linalg.norm(ag - g)
 
 
@@ -87,20 +84,18 @@ parser.add_argument('--num-workers', type=int, default=mp.cpu_count() - 1, help=
 
 args = parser.parse_args()
 
-
-file_name = "%s_%s_%s" % (args.policy_name, args.env_name, str(args.seed))
-print("---------------------------------------")
-print("Settings: %s" % (file_name))
-print("---------------------------------------")
 args.save_models = True
 args.num_wrokers = 8
 
 
 env = gym.make(args.env_name)
 env_param = get_env_params(env)
-#jobid = os.environ['SLURM_ARRAY_TASK_ID']
-#args.seed += int(jobid)
+jobid = os.environ['SLURM_ARRAY_TASK_ID']
+args.seed += int(jobid)
 # Set seeds
+print("---------------------------------------")
+print("Env Name: %s | Seed : %s" % (args.env_name, args.seed))
+print("---------------------------------------")
 env.seed(args.seed)
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
@@ -119,7 +114,7 @@ policy = OurDDPG.DDPG(args, state_dim, action_dim, max_action, goal_dim)
 replay_buffer = ReplayBuffer()
 
 # Evaluate untrained policy
-evaluations = [evaluate_policy(policy)]
+evaluations = [evaluate_policy(policy, default=True)]
 
 total_timesteps = 0
 timesteps_since_eval = 0
@@ -151,7 +146,8 @@ model_path = os.path.join(args.save_dir, args.env_name)
 if not os.path.isdir(model_path):
     os.makedirs(model_path)
 args.save_dir = model_path
-
+alice_envs = []
+alice_envs_total = []
 while total_timesteps < args.max_timesteps:
 
     if done:
@@ -170,10 +166,13 @@ while total_timesteps < args.max_timesteps:
         # Evaluate episode
         if timesteps_since_eval >= args.eval_freq:
             timesteps_since_eval %= args.eval_freq
-            evaluations.append(evaluate_policy(policy))
+            avg_reward, default_dist = evaluate_policy(policy, default=True)
+            _, hard_dist = evaluate_policy(policy, default=False)
+            evaluations.append([avg_reward, default_dist, hard_dist])
 
-            if args.save_models: policy.save(file_name, directory=args.save_dir)
-            np.save(f"{args.save_dir}/{file_name}", evaluations)
+            if args.save_models: policy.save('model.pt', directory=args.save_dir)
+            np.save(f"{args.save_dir}/evaluations.npy", evaluations)
+            np.save(f"{args.save_dir}/alice_envs.npy", alice_envs_total)
 
         # Reset environment
         obs = env.reset()
@@ -192,6 +191,11 @@ while total_timesteps < args.max_timesteps:
         bobs_goal_state, alice_time = policy.alice_loop(args, env, env_param)  # Alice Loop
 
         multiplier = np.clip(env_settings[svpg_index][0][0], 0, 1.0)
+        alice_envs.append(multiplier)
+        if total_timesteps % int(1e5) == 0:
+            alice_envs_total.append(alice_envs)
+            alice_envs = []
+
 
         env.randomize([multiplier])  # Randomize the env for bob
 
@@ -206,6 +210,7 @@ while total_timesteps < args.max_timesteps:
     else:
         # Select action randomly or according to policy
         env.randomize([-1])
+        obs = env.reset()
         if total_timesteps < args.start_timesteps:
             action = env.action_space.sample()
         else:
@@ -229,6 +234,8 @@ while total_timesteps < args.max_timesteps:
     timesteps_since_eval += 1
 
 # Final evaluation
-evaluations.append(evaluate_policy(policy))
-if args.save_models: policy.save("%s" % (file_name), directory="./saved_models")
-np.save("./results/%s" % (file_name), evaluations)
+avg_reward, default_dist = evaluate_policy(policy, default=True)
+_, hard_dist = evaluate_policy(policy, default=False)
+evaluations.append([avg_reward, default_dist, hard_dist])
+if args.save_models: policy.save('model.pt', directory=args.save_dir)
+np.save(f"{args.save_dir}/evaluations.npy", evaluations)
