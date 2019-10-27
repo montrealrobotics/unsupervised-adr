@@ -111,33 +111,39 @@ class DDPG(object):
     def alice_loop(self, args, env, env_params):
         alice_done = False
         alice_time = 0
-        env.randomize(["default"] * args.n_param)
-        observation = env.reset()
-        ag = observation[6:8]
-        g = observation[8:]
+        env.randomize(["default"] * args.n_params)
+        obs = env.reset()
+        ag = obs[6:8]
+        g = obs[8:]
         alice_state = np.concatenate([ag, np.zeros(g.shape[0])])
-        while not alice_done and (alice_time < env_params['max_timesteps']):  # TODO: Include env_params
-            with torch.no_grad():
-                observation = torch.FloatTensor(observation.reshape(1, -1)).to(device)
-                pi = self.actor_target(observation)
-                action = pi.cpu().data.numpy().flatten()
+
+        count = 1
+        while not alice_done and (alice_time < env_params['max_timesteps']):
+            count += 1
+
+            observation = torch.FloatTensor(obs.reshape(1, -1)).to(device)
+
+            pi = self.actor_target(observation)
+            action = pi.cpu().data.numpy().flatten()
 
             observation_new, reward, env_done, _ = env.step(action)
             obs_new = observation_new
             ag_new = observation_new[6:8]
             alice_signal = self.alice_policy.select_action(alice_state)
+            bobs_goal_state = ag_new
 
             # Stopping Criteria
             if alice_signal > np.random.random(): alice_done = True
             alice_done = env_done or alice_time + 1 == env_params['max_timesteps'] or alice_signal and alice_time >= 1
             if not alice_done:
+
                 alice_state[env_params["goal"]:] = ag_new
                 bobs_goal_state = ag_new
                 alice_time += 1
                 self.alice_policy.log(0.0)
                 obs = obs_new
                 ag = ag_new
-
+  
         return bobs_goal_state, alice_time
 
     def bob_loop(self, env, env_params, bobs_goal_state, alice_time, replay_buffer):
@@ -146,16 +152,15 @@ class DDPG(object):
         bob_state = np.concatenate([state, bobs_goal_state])
         bob_done = False
         bob_time = 0
+
         while not bob_done and alice_time + bob_time < env_params['max_timesteps']:
-            with torch.no_grad:
-                observation = torch.FloatTensor(observation.reshape(1, -1)).to(device)
-                action = self.select_action(observation)
+            action = self.select_action(obs)
             new_obs, reward, env_done, _ = env.step(action)
-            bob_signal = self.check_closeness(new_obs[6:8], bobs_goal_state)
+            bob_signal = self._check_closeness(new_obs[6:8], bobs_goal_state)
             bob_done = env_done or bob_signal or bob_done
 
             if not bob_done:
-                replay_buffer.append((obs, new_obs, action, reward, bob_done))
+                replay_buffer.add((obs, new_obs, action, reward, bob_done))
                 obs = new_obs
                 bob_time += 1
 
