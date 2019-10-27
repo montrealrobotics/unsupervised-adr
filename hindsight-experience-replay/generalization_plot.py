@@ -42,6 +42,7 @@ def genelarization(approach, parameter, selplay_index, epoch=-1):
 
         evals = np.load(os.getcwd() + '/' + save_dir + 'success_rates.npy')
         last_eval = evals[epoch]
+        print(s)
         evaluations.append(last_eval[parameter][:])
     evaluations_mean = np.mean(evaluations, axis=0)
 
@@ -64,8 +65,12 @@ if __name__ == '__main__':
     PLOTCOLORS = ['darkmagenta', 'orange', 'red', 'darkolivegreen', 'hotpink', 'blue']
     # alice_sampling = ['block_mass', 'hook_mass', 'friction']
     alice_sampling = ['friction']
-    SEED = [1, 2, 3, 4]
-
+    SEED = [31, 32, 34, 35]
+    save_plots = os.getcwd() + f'/plots/{args.env_name}/'
+    if not os.path.isdir(save_plots):
+        os.makedirs(save_plots)
+        print('yay')
+    plt.rcParams["figure.figsize"] = (10, 6)
     ######## Plot generalization curve ########
 
     for i, param in enumerate(PARAMETERS):
@@ -78,15 +83,16 @@ if __name__ == '__main__':
 
             axes[0].set_xlabel("Multipliers")
             axes[0].set_ylabel("Success Rate")
-            axes[0].set_title(f"{param} Generalization for {args.env_name} Environment")
+            axes[0].set_title(f"{param} Generalization | {args.env_name}")
             axes[0].legend()
         values = sampling_plot(alice_sampling[i], sp_index=sp[1], approach='adr')
         axes[1].hist(values, stacked=True, label=['Epoch :' + str(e) for e in epoch], color=PLOTCOLORS[0:6], alpha=0.4)
         axes[1].legend()
         axes[1].set_xlabel("Multipliers")
         axes[1].set_ylabel("Frequency")
-        axes[1].set_title(f'{param} sampling frequency over time')
+        axes[1].set_title(f'{param} sampling frequency')
 
+        plt.savefig(f'{save_plots}/{param}_sampling_plot.png', figsize=(20, 10))
         plt.show()
         plt.clf()
         plt.close()
@@ -101,7 +107,8 @@ if __name__ == '__main__':
         plt.title(f'{param} for {args.env_name}')
         plt.xlabel("Multipliers")
         plt.ylabel("Success Rate")
-        # plt.ylim(0, 1.2)
+        plt.ylim(0, 1)
+        plt.savefig(f'{save_plots}/{param}_generalization.png', figsize=(10, 10))
         plt.show()
 
 

@@ -88,3 +88,21 @@ register(
     }
 )
 
+register(
+    id='ResFetchPushRandomizedEnv-v0',
+    entry_point='randomizer.randomized_residual_push:ResidualPushRandomizedEnv',
+    max_episode_steps=50,
+    kwargs={
+        'config': 'randomizer/config/FetchPushRandomized/random.json',
+        'xml_name': 'push.xml'
+    }
+)
+register(
+    id='ResFetchPushDefaultEnv-v0',
+    entry_point='randomizer.randomized_residual_push:ResidualPushRandomizedEnv',
+    max_episode_steps=50,
+    kwargs={
+        'config': 'randomizer/config/FetchPushRandomized/default.json',
+        'xml_name': 'push.xml'
+    }
+)

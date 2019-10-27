@@ -6,7 +6,7 @@ import numpy as np
 from mpi4py import MPI
 from models import actor, critic
 from utils import sync_networks, sync_grads
-from replay_buffer import replay_buffer, ReplayBufferSelfPlay
+from replay_buffer import replay_buffer
 from normalizer import normalizer
 from her import her_sampler
 from models import AlicePolicyFetch
@@ -47,7 +47,6 @@ class ddpg_agent:
         self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
         # create the replay buffer
         self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions)
-        self.replay_buffer = ReplayBufferSelfPlay(capacity=int(1e6))
         # create the normalizer
         self.o_norm = normalizer(size=env_params['obs'], default_clip_range=self.args.clip_range)
         self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)

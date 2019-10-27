@@ -77,7 +77,7 @@ class RandomizedResidualPushEnv(ResidualSlipperyPushEnv):
             joint.set('damping', '{:3f}'.format(damping))
 
     def _randomize_friction(self):
-        current_friction = self.dimensions[1].current_value
+        current_friction = self.dimensions[0].current_value
         for i in range(len(self.fetch_env.env.sim.model.geom_friction)):
             self.fetch_env.env.sim.model.geom_friction[i] = [current_friction, 5.e-3, 1e-4]
 
