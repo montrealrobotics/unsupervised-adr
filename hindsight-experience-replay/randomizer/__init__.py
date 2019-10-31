@@ -69,11 +69,31 @@ register(
 )
 register(
     id='ErgoPushDefaultEnv-Headless-v0',
-    entry_point='randomizer.randomized_ergo_pusher:ErgoPusherRandomizedEnv',
+    entry_point='randomizer.randomized_ergoreacher:ErgoPusherRandomizedEnv',
     max_episode_steps=100,
     reward_threshold=0,
     kwargs={
         'config': 'randomizer/config/ErgoPushRandomized/default.json',
+        'headless': True
+    }
+)
+register(
+    id='ErgoReacherRandomizedEnv-Headless-v0',
+    entry_point='randomizer.randomized_ergoreacher:ErgoReacherRandomizedEnv',
+    max_episode_steps=100,
+    reward_threshold=0,
+    kwargs={
+        'config': 'randomizer/config/ErgoPushRandomized/random.json',
+        'headless': True
+    }
+)
+register(
+    id='ErgoReacherDefaultEnv-Headless-v0',
+    entry_point='randomizer.randomized_ergo_pusher:ErgoReacherRandomizedEnv',
+    max_episode_steps=100,
+    reward_threshold=0,
+    kwargs={
+        'config': 'randomizer/config/ErgoReacherRandomized/default.json',
         'headless': True
     }
 )
