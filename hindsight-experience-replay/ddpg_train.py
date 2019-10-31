@@ -1,3 +1,5 @@
+# import comet_ml in the top of your file
+from comet_ml import Experiment
 import numpy as np
 import torch
 import gym
@@ -10,6 +12,10 @@ import OurDDPG
 from randomizer.wrappers import RandomizedEnvWrapper
 from adr.adr import ADR
 import multiprocessing as mp
+
+# Add the following code anywhere in your machine learning file
+experiment = Experiment(api_key="1u7Pwq0amykuUU36c0wkycF5J",
+                        project_name="residual-self-play", workspace="sharath")
 
 
 # Runs policy for X episodes and returns average reward
@@ -25,17 +31,15 @@ def evaluate_policy(policy, default, eval_episodes=10):
         done = False
         while not done:
             action = policy.select_action(np.array(obs))
-            obs, reward, done, _ = env.step(action)
-            avg_default_dist += distance_evaluation(obs)
+            obs, reward, done, info = env.step(action)
             avg_reward += reward
 
     avg_reward /= eval_episodes
-    avg_default_dist /= eval_episodes
 
     print("---------------------------------------")
     print("Evaluation over %d episodes: %f" % (eval_episodes, avg_reward))
     print("---------------------------------------")
-    return avg_reward, avg_default_dist
+    return avg_reward, info['distance']
 
 def distance_evaluation(obs):
     ag = obs[6:8]
@@ -169,6 +173,10 @@ while total_timesteps < args.max_timesteps:
             avg_reward, default_dist = evaluate_policy(policy, default=True)
             _, hard_dist = evaluate_policy(policy, default=False)
             evaluations.append([avg_reward, default_dist, hard_dist])
+            experiment.log_metric("Default Distance", default_dist)
+            experiment.log_metric("Hard Distance", hard_dist)
+            experiment.add_tag(f'{args.seed}')
+            experiment.add_tag(f'{args.approach}')
 
             if args.save_models: policy.save('model.pt', directory=args.save_dir)
             np.save(f"{args.save_dir}/evaluations.npy", evaluations)
@@ -192,7 +200,7 @@ while total_timesteps < args.max_timesteps:
 
         multiplier = np.clip(env_settings[svpg_index][0][0], 0, 1.0)
         alice_envs.append(multiplier)
-        if total_timesteps % int(1e5) == 0:
+        if total_timesteps % int(1e4) == 0:
             alice_envs_total.append(alice_envs)
             alice_envs = []
 
