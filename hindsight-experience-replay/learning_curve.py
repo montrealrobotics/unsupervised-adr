@@ -1,60 +1,77 @@
 import torch
 from models import actor
 from arguments import get_args
-import gym
 import numpy as np
 import os
 import os.path as osp
 import matplotlib.pyplot as plt
-from matplotlib import animation, rc
-from scipy.interpolate import spline
-
-args = get_args()
+import itertools
 
 
-def plot_lc():
-    xlabel_learning = np.linspace(1, 50, 2500)
-    x_gen_labels = np.linspace(0, 50, 1)
-    epoch = [0, 9, 19, 29, 39, 49]
-    sp = [0.0, 0.5]
+def learning_curve(selplay_index, approach, seed):
+    default_dist = []
+
+    for s in seed:
+        a = []
+        save_dir = osp.join(args.save_dir, "sp" + str(sp[selplay_index]) + "polyak" +
+                            str(args.polyak) + '-' + str(approach), str(s), args.env_name + '/')
+        array = np.load(save_dir + 'evaluations.npy', allow_pickle=True)
+        for arr in array:
+            a.append(arr)
+        array = np.asarray(a[1:])
+        print(f'Array shape : {array.shape} | Seed : {s} | Approach : {approach} | selplay_index : {selplay_index}')
+        array = np.asarray(a[1:70])
+        # print(array.shape)
+        default_dist.append([array[:, 1]])
+    # print(max(default_dist))
+    mean = np.mean(np.asarray(default_dist), axis=0)
+
+    std = np.std(np.asarray(default_dist), axis=0)
+
+    return mean, std
+
+
+def sampling_plot(sp_index, approach='adr'):
+
+    for s in SEED:
+        save_dir = osp.join(args.save_dir, "sp" + str(sp_index) + "polyak" +
+                            str(args.polyak) + '-' + str(approach), str(s), args.env_name + '/')
+        print(save_dir)
+        alice_envs = np.load(save_dir + f'alice_envs.npy', allow_pickle=True)
+        envs = alice_envs
+        envs = list(itertools.chain(*envs))
+
+    list_ = np.reshape(envs, (-1, 1))
+    return list_
+
+
+if __name__=='__main__':
+    args = get_args()
+    # load the model param
+    sp = [0.0, 1.0]
+    # sp = [0.5, 0.5, 1.0]
+    x_gen_labels = np.linspace(0, 69, 69)
     approach = ["udr", "adr"]
-    SEED = [36, 37, 38, 39]
-    PLOTCOLORS = ['darkmagenta', 'orange', 'red', 'darkolivegreen', 'hotpink', 'blue']
+    PLOTCOLORS = ['hotpink', 'red', 'darkolivegreen', 'hotpink', 'blue']
+    save_plots = os.getcwd() + f'/plots/{args.env_name}/'
+    if not os.path.isdir(save_plots):
+        os.makedirs(save_plots)
+    plt.rcParams["figure.figsize"] = (10, 6)
+    SEED = [37, 40] # 31 - 0.15 | 32 : 0.5
+    list_ = sampling_plot(sp_index='0.5')
+    for i, a in enumerate(approach):
+        print(i, a)
+        mean, std = learning_curve(i, a, SEED)
+        mean = np.reshape(mean, (-1))
+        std = np.reshape(std, (-1))
 
-    learning_params = ["Default Env Success", "Default Env Average Distance", "Hard Env Success", "Hard Env Average Distance"]
-    save_dir = osp.join(args.save_dir, "sp" + str(sp[0]) + "polyak" +
-                        str(args.polyak) + '-' + str(approach[0]), str(24), args.env_name + '/')
-    learning = np.load(os.getcwd() + '/' + save_dir + 'evaluations.npz')
-    for i, keys in enumerate(learning.keys()):
-        print(keys)
-        for idx, app in enumerate(approach):
-            learnings = []
-            seed = []
-            for s in SEED:
-                save_dir = osp.join(args.save_dir, "sp" + str(sp[idx]) + "polyak" +
-                                    str(args.polyak) + '-' + str(approach[idx]), str(s), args.env_name + '/')
-                learning = np.load(os.getcwd() + '/' + save_dir + 'evaluations.npz')
-                key = learning[keys]
-                print(len(key))
-                learnings.append(key)
-                seed.extend(learnings)
-            print(np.reshape(np.asarray(seed), (-1, 1)).shape)
-            learnings_mean = np.mean(learnings, axis=0)
-            learnings_std = np.reshape(np.std(learnings, axis=0), (-1))
-            y = np.convolve(np.reshape(learnings_mean, (-1)), np.ones(10) / 10)
-            plt.plot(xlabel_learning, y[5:2505], label= f"{app} :{keys}", color=PLOTCOLORS[idx])
-            plt.fill_between(xlabel_learning, np.reshape(learnings_mean, (-1))
-                             - learnings_std / 2, np.reshape(learnings_mean, (-1)) + learnings_std / 2,
-                             facecolor=PLOTCOLORS[idx], alpha=0.8)
-            plt.xlim(0, 50)
-            # plt.ylim(45, 55)
-            plt.title(f"Learning curve (ErgoPush Environment) : {learning_params[i]}")
-            plt.xlabel("Epoch")
-            plt.ylabel(f'{learning_params[i]}')
-            plt.legend()
-        plt.savefig(f'{keys}.png')
-        plt.show()
-        # plt.clf()
-    plt.close()
+        plt.plot(x_gen_labels, mean, label=f'{a} - sp{sp[i]}',  alpha=0.7)
+        plt.fill_between(x_gen_labels, mean + std/2, mean - std/2,  alpha=0.2)
+    plt.title(f'Learning Curve for {args.env_name} | Default env')
+    plt.xlabel("Number of evaluations | 1 eval per 5000 timesteps")
+    plt.ylabel("Average Distance")
+    # plt.ylim(0, 1)
+    plt.legend()
+    plt.savefig(f'{save_plots}/default_generalization_sp{sp[1]}.png', figsize=(10, 10))
 
-plot_lc()
+    plt.show()

@@ -23,9 +23,9 @@ def evaluate_policy(policy, default, eval_episodes=10):
     avg_reward = 0.
     avg_default_dist = 0
     if default:
-        env.randomize(["default"])
+        env.randomize(["default"] * args.n_params)
     else:
-        env.randomize([0.1])
+        env.randomize([0.1] * args.n_params)
     for _ in range(eval_episodes):
         obs = env.reset()
         done = False
@@ -97,9 +97,7 @@ env_param = get_env_params(env)
 jobid = os.environ['SLURM_ARRAY_TASK_ID']
 args.seed += int(jobid)
 # Set seeds
-print("---------------------------------------")
-print("Env Name: %s | Seed : %s" % (args.env_name, args.seed))
-print("---------------------------------------")
+
 env.seed(args.seed)
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
@@ -110,6 +108,7 @@ action_dim = env.action_space.shape[0]
 max_action = float(env.action_space.high[0])
 goal_dim = 2
 env = RandomizedEnvWrapper(env, seed=args.seed)
+env.reset()
 svpg_rewards = []
 
 # Initialize policy
@@ -153,9 +152,7 @@ args.save_dir = model_path
 alice_envs = []
 alice_envs_total = []
 while total_timesteps < args.max_timesteps:
-
     if done:
-
         if total_timesteps != 0:
             print("Total T: {} Episode Num: {} Episode T: {} Reward: {}".format(total_timesteps, episode_num,
                                                                                 episode_timesteps, episode_reward))
@@ -175,12 +172,15 @@ while total_timesteps < args.max_timesteps:
             evaluations.append([avg_reward, default_dist, hard_dist])
             experiment.log_metric("Default Distance", default_dist)
             experiment.log_metric("Hard Distance", hard_dist)
-            experiment.add_tag(f'{args.seed}')
-            experiment.add_tag(f'{args.approach}')
+            experiment.add_tag(f'{args.env_name}')
+            experiment.add_tag(f'{args.approach} - {args.sp_percent} - {args.seed}')
 
             if args.save_models: policy.save('model.pt', directory=args.save_dir)
             np.save(f"{args.save_dir}/evaluations.npy", evaluations)
             np.save(f"{args.save_dir}/alice_envs.npy", alice_envs_total)
+            print("---------------------------------------")
+            print("Env Name: %s | Seed : %s | sp-percent : %s" % (args.env_name, args.seed, args.sp_percent))
+            print("---------------------------------------")
 
         # Reset environment
         obs = env.reset()
@@ -196,16 +196,16 @@ while total_timesteps < args.max_timesteps:
 
     if np.random.random() < args.sp_percent:  # Self-play loop
         env.randomize(["default"] * args.n_params)
+
         bobs_goal_state, alice_time = policy.alice_loop(args, env, env_param)  # Alice Loop
 
-        multiplier = np.clip(env_settings[svpg_index][0][0], 0, 1.0)
+        multiplier = np.clip(env_settings[svpg_index][0][:args.n_params], 0, 1.0)
         alice_envs.append(multiplier)
         if total_timesteps % int(1e4) == 0:
             alice_envs_total.append(alice_envs)
             alice_envs = []
 
-
-        env.randomize([multiplier])  # Randomize the env for bob
+        env.randomize(multiplier)  # Randomize the env for bob
 
         bob_time, done = policy.bob_loop(env, env_param,  bobs_goal_state, alice_time, replay_buffer)  # Bob Loop
         alice_reward = policy.train_alice(alice_time, bob_time)  # Train alice
@@ -217,8 +217,11 @@ while total_timesteps < args.max_timesteps:
             svpg_rewards = []
     else:
         # Select action randomly or according to policy
-        env.randomize([-1])
+        env.randomize([-1] * args.n_params)
+
+
         obs = env.reset()
+
         if total_timesteps < args.start_timesteps:
             action = env.action_space.sample()
         else:
@@ -230,6 +233,7 @@ while total_timesteps < args.max_timesteps:
         # Perform action
         new_obs, reward, done, _ = env.step(action)
         done_bool = 0 if episode_timesteps + 1 == env_param['max_timesteps'] else float(done)
+        done = done or episode_timesteps + 1 == env_param['max_timesteps']
         episode_reward += reward
 
         # Store data in replay buffer
