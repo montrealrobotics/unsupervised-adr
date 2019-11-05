@@ -94,7 +94,7 @@ def pick_at_position(obs, block_position, place_position, relative_grasp_positio
     return get_move_action(obs, target_position, atol=atol)
 
 
-def get_hook_control(obs, atol=1e-2):
+def get_hook_control(obs, atol=0.4e-2): # We can make residual controller shitty by playing with atol
     """
     Returns
     -------

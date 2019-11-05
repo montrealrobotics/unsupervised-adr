@@ -32,7 +32,7 @@ register(
 )
 register(
     id='FetchHookDefaultEnv-v0',
-    entry_point='randomizer.randomized_residual_hook:FetchHookEnv',
+    entry_point='randomizer.randomized_residual_hook:ResidualFetchHookEnv',
     max_episode_steps=100,
     kwargs={
         'config': 'randomizer/config/FetchHookRandomized/default.json',
@@ -54,6 +54,24 @@ register(
     max_episode_steps=100,
     kwargs={
         'config': 'randomizer/config/FetchHookRandomized/default.json',
+        'xml_name': 'hook.xml'
+    }
+)
+register(
+    id='TwoNoisyFetchHookDefaultEnv-v0',
+    entry_point='randomizer.randomized_residual_hook:TwoFrameResidualHookNoisyEnv',
+    max_episode_steps=100,
+    kwargs={
+        'config': 'randomizer/config/FetchHookRandomized/default.json',
+        'xml_name': 'hook.xml'
+    }
+)
+register(
+    id='TwoNoisyFetchHookRandomEnv-v0',
+    entry_point='randomizer.randomized_residual_hook:TwoFrameResidualHookNoisyEnv',
+    max_episode_steps=100,
+    kwargs={
+        'config': 'randomizer/config/FetchHookRandomized/random.json',
         'xml_name': 'hook.xml'
     }
 )
@@ -83,18 +101,35 @@ register(
     max_episode_steps=100,
     reward_threshold=0,
     kwargs={
-        'config': 'randomizer/config/ErgoPushRandomized/random.json',
-        'headless': True
+        'config': 'randomizer/config/ErgoReacherRandomized/random.json',
+        'headless': True,
+        'simple': True,
+        'goal_halfsphere': True,
+        'multi_goal': True
     }
 )
 register(
     id='ErgoReacherDefaultEnv-Headless-v0',
     entry_point='randomizer.randomized_ergo_pusher:ErgoReacherRandomizedEnv',
     max_episode_steps=100,
-    reward_threshold=0,
     kwargs={
         'config': 'randomizer/config/ErgoReacherRandomized/default.json',
-        'headless': True
+        'headless': True,
+        'simple': True,
+        'goal_halfsphere': True,
+        'multi_goal': True
+    }
+)
+register(
+    id='ErgoReacherHardEnv-Headless-v0',
+    entry_point='randomizer.randomized_ergoreacher:ErgoReacherRandomizedEnv',
+    max_episode_steps=100,
+    kwargs={
+        'config': 'randomizer/config/ErgoReacherRandomized/hard.json',
+        'headless': True,
+        'simple': True,
+        'goal_halfsphere': True,
+        'multi_goal': True
     }
 )
 register(
