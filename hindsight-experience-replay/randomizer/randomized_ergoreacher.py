@@ -17,10 +17,10 @@ class ErgoReacherRandomizedEnv(ErgoReacherEnv):
 
     def step(self, action):
         observation, reward, done, info = super().step(action)
-        info = {'goal_dist': self.dist.query()}
-        return observation, reward, False, info  # I'm not crazy excited about the lack of early stopping, but alright
+        info = {'distance': self.dist.query()}
+        return observation, reward, done, info  # I'm not crazy excited about the lack of early stopping, but alright
 
-    def _update_randomized_params(self):
+    def update_randomized_params(self):
         # these are used automatically in the `step` function
         self.max_force = np.zeros(6, np.float32)
         self.max_vel = np.zeros(6, np.float32)
