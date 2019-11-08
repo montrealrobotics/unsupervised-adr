@@ -42,7 +42,7 @@ def genelarization(approach, parameter, selplay_index, epoch=-1):
 
         evals = np.load(os.getcwd() + '/' + save_dir + 'success_rates.npy')
         last_eval = evals[epoch]
-        print(s)
+        print(approach, s, selplay_index)
         evaluations.append(last_eval[parameter][:])
     evaluations_mean = np.mean(evaluations, axis=0)
 
@@ -65,11 +65,11 @@ if __name__ == '__main__':
     PLOTCOLORS = ['darkmagenta', 'orange', 'red', 'darkolivegreen', 'hotpink', 'blue']
     # alice_sampling = ['block_mass', 'hook_mass', 'friction']
     alice_sampling = ['friction']
-    SEED = [31, 32, 34, 35]
+    SEED = [ 31, 32, 33, 34]
     save_plots = os.getcwd() + f'/plots/{args.env_name}/'
     if not os.path.isdir(save_plots):
         os.makedirs(save_plots)
-        print('yay')
+
     plt.rcParams["figure.figsize"] = (10, 6)
     ######## Plot generalization curve ########
 

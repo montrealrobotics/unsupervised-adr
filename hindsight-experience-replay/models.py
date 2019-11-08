@@ -15,7 +15,7 @@ eps = np.finfo(np.float32).eps.item()
 the input x in both networks should be [o, g], where o is the observation and g is the goal.
 
 """
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def setup_mpi(agent):
   os.environ['OMP_NUM_THREADS'] = '1'
   os.environ['MKL_NUM_THREADS'] = '1'
@@ -78,7 +78,7 @@ class AlicePolicyFetch:
         self.args = args
 
     def select_action(self, state, deterministic=False, save_log_probs=True):
-        state = torch.from_numpy(state).float().unsqueeze(0)
+        state = torch.from_numpy(state).float().unsqueeze(0).to(device)
         probs, value = self.policy(state)
         m = Bernoulli(probs)
 
@@ -123,9 +123,9 @@ class AlicePolicyFetch:
             R = r + gamma * R
             returns.insert(0, torch.FloatTensor([R]).unsqueeze(1))
 
-        log_probs = torch.cat(self.policy.saved_log_probs)
-        returns = torch.cat(returns).detach()
-        values = torch.cat(self.policy.values)
+        log_probs = torch.cat(self.policy.saved_log_probs).to(device)
+        returns = torch.cat(returns).detach().to(device)
+        values = torch.cat(self.policy.values).to(device)
 
         advantage = returns - values
 
@@ -135,7 +135,7 @@ class AlicePolicyFetch:
 
         self.optimizer.zero_grad()
         loss.backward()
-        sync_grads(self.comm, self.policy)
+        # sync_grads(self.comm, self.policy)
         self.optimizer.step()
 
         self.policy.rewards = []

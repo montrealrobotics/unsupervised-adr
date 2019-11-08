@@ -60,6 +60,7 @@ class DDPG(object):
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters())
 
         self.alice_policy = AlicePolicyFetch(self.args, goal_dim, action_dim=1)
+        self.alice_policy.policy.to(device)
 
     def select_action(self, state):
         state = torch.FloatTensor(state.reshape(1, -1)).to(device)
@@ -117,6 +118,7 @@ class DDPG(object):
         g = obs[8:]
         alice_state = np.concatenate([ag, np.zeros(g.shape[0])])
 
+
         count = 1
         while not alice_done and (alice_time < env_params['max_timesteps']):
             count += 1
@@ -142,7 +144,9 @@ class DDPG(object):
                 alice_time += 1
                 self.alice_policy.log(0.0)
                 obs = obs_new
+                
                 ag = ag_new
+  
   
         return bobs_goal_state, alice_time
 
@@ -152,14 +156,16 @@ class DDPG(object):
         bob_state = np.concatenate([state, bobs_goal_state])
         bob_done = False
         bob_time = 0
-
         while not bob_done and alice_time + bob_time < env_params['max_timesteps']:
+
+            
             action = self.select_action(obs)
             new_obs, reward, env_done, _ = env.step(action)
             bob_signal = self._check_closeness(new_obs[6:8], bobs_goal_state)
             bob_done = env_done or bob_signal or bob_done
 
             if not bob_done:
+            
                 replay_buffer.add((obs, new_obs, action, reward, bob_done))
                 obs = new_obs
                 bob_time += 1

@@ -84,6 +84,7 @@ parser.add_argument('--polyak', type=float, default=0.95, help='the average coef
 parser.add_argument('--approach', type=str, default='baseline', help='Different approaches for experiments')
 parser.add_argument('--sp-gamma', type=float, default=0.1, help='Self play gamma')
 parser.add_argument('--num-workers', type=int, default=mp.cpu_count() - 1, help='number of workers for trajectories sampling')
+parser.add_argument('--only-sp', type=bool, default=False, help='number of workers for trajectories sampling')
 
 
 args = parser.parse_args()
@@ -95,7 +96,8 @@ args.num_wrokers = 8
 env = gym.make(args.env_name)
 env_param = get_env_params(env)
 jobid = os.environ['SLURM_ARRAY_TASK_ID']
-args.seed += int(jobid)
+seed = [31, 32, 33, 34, 35]
+args.seed = seed[int(jobid) - 1]
 # Set seeds
 
 env.seed(args.seed)
@@ -205,8 +207,10 @@ while total_timesteps < args.max_timesteps:
             alice_envs_total.append(alice_envs)
             alice_envs = []
 
-        env.randomize(multiplier)  # Randomize the env for bob
-
+        if not args.only_sp:
+            env.randomize(multiplier)  # Randomize the env for bob
+        else:
+            env.randomize(["default"] * args.n_params)
         bob_time, done = policy.bob_loop(env, env_param,  bobs_goal_state, alice_time, replay_buffer)  # Bob Loop
         alice_reward = policy.train_alice(alice_time, bob_time)  # Train alice
 
