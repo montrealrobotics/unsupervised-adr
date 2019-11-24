@@ -41,6 +41,10 @@ def get_args():
     parser.add_argument('--svpg-rollout-length', type=int, default=5)
     parser.add_argument('--nmpi', type=int, default=8) # TODO!
     parser.add_argument('--n-param', type=int, default=1)
+    parser.add_argument('--mode', type=str, default='default')
+    parser.add_argument('--window-size', type=int, default=20)
+
+# Add more arguments if needed.
 
     args = parser.parse_args()
 

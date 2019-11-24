@@ -299,12 +299,12 @@ class ddpg_agent:
                 # soft update
                 self._soft_update_target_network(self.actor_target_network, self.actor_network)
                 self._soft_update_target_network(self.critic_target_network, self.critic_network)
-                # success_rate_default, average_dist_default = self._eval_default_env(default=True)
-                # success_rate_hard, average_dist_hard = self._eval_default_env(default=False)
-                # default_dist.append(average_dist_default)
-                # hard_dist.append(average_dist_hard)
-                # default_success.append(success_rate_default)
-                # hard_success.append(success_rate_hard)
+                success_rate_default, average_dist_default = self._eval_default_env(default=True)
+                success_rate_hard, average_dist_hard = self._eval_default_env(default=False)
+                default_dist.append(average_dist_default)
+                hard_dist.append(average_dist_hard)
+                default_success.append(success_rate_default)
+                hard_success.append(success_rate_hard)
 
             # start to do the evaluation
             success_rate = self._eval_agent()
