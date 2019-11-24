@@ -16,9 +16,12 @@ class ErgoReacherRandomizedEnv(ErgoReacherEnv):
         # self.max_vel
 
     def step(self, action):
-        observation, reward, done, info = super().step(action)
+        obs, reward, done, info = super().step(action)
         info = {'distance': self.dist.query()}
-        return observation, reward, done, info  # I'm not crazy excited about the lack of early stopping, but alright
+        observation = {"observation": obs,
+                       "achieved_goal": self.get_tip()[0][1:],
+                       "desired_goal": obs[8:]}
+        return observation, reward, done, info
 
     def update_randomized_params(self):
         # these are used automatically in the `step` function

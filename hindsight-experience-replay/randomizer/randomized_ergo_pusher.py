@@ -21,7 +21,10 @@ class ErgoPusherRandomizedEnv(ErgoPusherEnv):
         # self.puck.friction
 
     def step(self, action):
-        observation, reward, done, info = super().step(action)
+        obs, reward, done, info = super().step(action)
+        observation = {"observation": obs,
+                       "achieved_goal": obs[6:8],
+                       "desired_goal": obs[8:]}
         return observation, reward, done, info
 
     def update_randomized_params(self):

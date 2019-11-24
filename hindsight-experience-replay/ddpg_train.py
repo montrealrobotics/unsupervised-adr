@@ -7,7 +7,6 @@ import argparse
 import os
 import gym_ergojr
 from replay_buffer import ReplayBuffer
-
 import OurDDPG
 from randomizer.wrappers import RandomizedEnvWrapper
 from adr.adr import ADR
@@ -18,47 +17,15 @@ experiment = Experiment(api_key="1u7Pwq0amykuUU36c0wkycF5J",
                         project_name="residual-self-play", workspace="sharath")
 
 
-# Runs policy for X episodes and returns average reward
-def evaluate_policy(policy, default, eval_episodes=10):
-    avg_reward = 0.
-    avg_default_dist = 0
-    if default:
-        env.randomize(["default"] * args.n_params)
-    else:
-        env.randomize([0.1] * args.n_params)
-    for _ in range(eval_episodes):
-        obs = env.reset()
-        done = False
-        while not done:
-            action = policy.select_action(np.array(obs))
-            obs, reward, done, info = env.step(action)
-            avg_reward += reward
-
-    avg_reward /= eval_episodes
-
-    print("---------------------------------------")
-    print("Evaluation over %d episodes: %f" % (eval_episodes, avg_reward))
-    print("---------------------------------------")
-    return avg_reward, info['distance']
-
-def distance_evaluation(obs):
-    ag = obs[6:8]
-    g = obs[8:]
-    return np.linalg.norm(ag - g)
-
-
 def get_env_params(env):
-    obs = env.reset()
+    observation = env.reset()
     # close the environment
-    params = {'obs': obs.shape[0],
-            'goal': obs[8:].shape[0],
-            'action': env.action_space.shape[0],
-            'action_max': env.action_space.high[0],
-            }
-    params['max_timesteps'] = env._max_episode_steps
+    params = {'obs': observation["observation"].shape[0], 'goal': observation["achieved_goal"].shape[0], 'action': env.action_space.shape[0],
+              'action_max': env.action_space.high[0], 'max_timesteps': env._max_episode_steps}
     return params
 
 
+## Why two arguments?
 parser = argparse.ArgumentParser()
 parser.add_argument("--policy_name", default="OurDDPG")  # Policy name
 parser.add_argument("--env_name", default="ErgoPushRandomizedEnv-Headless-v0")  # OpenAI gym environment name
@@ -88,27 +55,28 @@ parser.add_argument('--only-sp', type=bool, default=False, help='number of worke
 
 
 args = parser.parse_args()
-
 args.save_models = True
-args.num_wrokers = 8
-
+args.num_workers = 8
 
 env = gym.make(args.env_name)
 env_param = get_env_params(env)
+
 jobid = os.environ['SLURM_ARRAY_TASK_ID']
-seed = [31, 32, 33, 34, 35]
-args.seed = seed[int(jobid) - 1]
-# Set seeds
+seed = [40, 41, 42, 43, 44]
+args.seed = seed[int(jobid) - 1]  # Set seeds
 
 env.seed(args.seed)
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
 args.nparticles = mp.cpu_count() - 1
 
-state_dim = env.observation_space.shape[0]
-action_dim = env.action_space.shape[0]
-max_action = float(env.action_space.high[0])
-goal_dim = 2
+# state_dim = env.observation_space.shape[0]
+state_dim = env_param["obs"]
+action_dim = env_param["action"]
+max_action = env_param["action_max"]
+# action_dim = env.action_space.shape[0]
+# max_action = float(env.action_space.high[0])
+goal_dim = env_param["goal"]
 env = RandomizedEnvWrapper(env, seed=args.seed)
 env.reset()
 svpg_rewards = []
@@ -116,18 +84,16 @@ svpg_rewards = []
 # Initialize policy
 policy = OurDDPG.DDPG(args, state_dim, action_dim, max_action, goal_dim)
 
-replay_buffer = ReplayBuffer()
-
-# Evaluate untrained policy
-evaluations = [evaluate_policy(policy, default=True)]
+replay_buffer = ReplayBuffer(state_dim, action_dim)
 
 total_timesteps = 0
 timesteps_since_eval = 0
 episode_num = 0
 done = True
+
 # ADR integration
 adr = ADR(
-    nparticles=args.num_wrokers,
+    nparticles=args.num_workers,
     nparams=args.n_params,
     state_dim=1,
     action_dim=1,
@@ -145,45 +111,19 @@ args.save_dir = os.getcwd() + '/' + os.path.join(args.save_dir,
                               'sp{}polyak{}'.format(args.sp_percent, args.polyak) + '-' + args.approach,
                               str(args.seed))
 model_path = os.path.join(args.save_dir, args.env_name)
-# if not os.path.isdir(args.save_dir):
-#
-#     os.makedirs(args.save_dir)
+
 if not os.path.isdir(model_path):
     os.makedirs(model_path)
 args.save_dir = model_path
 alice_envs = []
 alice_envs_total = []
-while total_timesteps < args.max_timesteps:
+
+while total_timesteps < args.max_timesteps:  # Change this to a for loop
     if done:
+        env.randomize([-1] * args.n_params)
         if total_timesteps != 0:
             print("Total T: {} Episode Num: {} Episode T: {} Reward: {}".format(total_timesteps, episode_num,
                                                                                 episode_timesteps, episode_reward))
-
-
-            if args.policy_name == "TD3":
-                policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau,
-                             args.policy_noise, args.noise_clip, args.policy_freq)
-            else:
-                policy.train(replay_buffer, episode_timesteps, args.batch_size, args.discount, args.tau)
-
-        # Evaluate episode
-        if timesteps_since_eval >= args.eval_freq:
-            timesteps_since_eval %= args.eval_freq
-            avg_reward, default_dist = evaluate_policy(policy, default=True)
-            _, hard_dist = evaluate_policy(policy, default=False)
-            evaluations.append([avg_reward, default_dist, hard_dist])
-            experiment.log_metric("Default Distance", default_dist)
-            experiment.log_metric("Hard Distance", hard_dist)
-            experiment.add_tag(f'{args.env_name}')
-            experiment.add_tag(f'{args.approach} - {args.sp_percent} - {args.seed}')
-
-            if args.save_models: policy.save('model.pt', directory=args.save_dir)
-            np.save(f"{args.save_dir}/evaluations.npy", evaluations)
-            np.save(f"{args.save_dir}/alice_envs.npy", alice_envs_total)
-            print("---------------------------------------")
-            print("Env Name: %s | Seed : %s | sp-percent : %s" % (args.env_name, args.seed, args.sp_percent))
-            print("---------------------------------------")
-
         # Reset environment
         obs = env.reset()
         done = False
@@ -200,32 +140,29 @@ while total_timesteps < args.max_timesteps:
         env.randomize(["default"] * args.n_params)
 
         bobs_goal_state, alice_time = policy.alice_loop(args, env, env_param)  # Alice Loop
-
-        multiplier = np.clip(env_settings[svpg_index][0][:args.n_params], 0, 1.0)
-        alice_envs.append(multiplier)
+        bob_time, done = policy.bob_loop(env, env_param, bobs_goal_state, alice_time, replay_buffer)  # Bob Loop
+        alice_reward = policy.train_alice(alice_time, bob_time)  # Train alice
         if total_timesteps % int(1e4) == 0:
             alice_envs_total.append(alice_envs)
             alice_envs = []
 
         if not args.only_sp:
+            multiplier = np.clip(env_settings[svpg_index][0][:args.n_params], 0, 1.0)
+            alice_envs.append(multiplier)
             env.randomize(multiplier)  # Randomize the env for bob
+            svpg_rewards.append(alice_reward)
+            if len(svpg_rewards) == args.num_workers * args.svpg_rollout_length:  # ADR training
+                all_rewards = np.reshape(np.asarray(svpg_rewards), (args.num_workers, args.svpg_rollout_length))
+                adr._train_particles(all_rewards)
+                svpg_rewards = []
         else:
             env.randomize(["default"] * args.n_params)
-        bob_time, done = policy.bob_loop(env, env_param,  bobs_goal_state, alice_time, replay_buffer)  # Bob Loop
-        alice_reward = policy.train_alice(alice_time, bob_time)  # Train alice
 
-        svpg_rewards.append(alice_reward)
-        if len(svpg_rewards) == args.num_wrokers * args.svpg_rollout_length:  # ADR training
-            all_rewards = np.reshape(np.asarray(svpg_rewards), (args.num_wrokers, args.svpg_rollout_length))
-            adr._train_particles(all_rewards)
-            svpg_rewards = []
+
     else:
+        observation = env.reset()
+        obs = observation["observation"]
         # Select action randomly or according to policy
-        env.randomize([-1] * args.n_params)
-
-
-        obs = env.reset()
-
         if total_timesteps < args.start_timesteps:
             action = env.action_space.sample()
         else:
@@ -241,17 +178,25 @@ while total_timesteps < args.max_timesteps:
         episode_reward += reward
 
         # Store data in replay buffer
-        replay_buffer.add((obs, new_obs, action, reward, done_bool))
+        replay_buffer.add(obs, action, new_obs["observation"], reward, done_bool)
+        obs = new_obs["observation"]
+        # Train the policy after collecting sufficient data
+        policy.train(replay_buffer)
 
-        obs = new_obs
+    if timesteps_since_eval >= args.eval_freq:
+        timesteps_since_eval %= args.eval_freq
+        experiment.add_tag(f'{args.env_name}')
+        experiment.add_tag(f'{args.approach} - {args.sp_percent} - {args.seed}')
+
+        if args.save_models: policy.save(f'model_{total_timesteps}',
+                                         directory=args.save_dir)
+        np.save(f"{args.save_dir}/alice_envs.npy", alice_envs_total)
+        print("---------------------------------------")
+        print("Env Name: %s | Seed : %s | sp-percent : %s" % (args.env_name, args.seed, args.sp_percent))
+        print("---------------------------------------")
 
     episode_timesteps += 1
     total_timesteps += 1
     timesteps_since_eval += 1
 
-# Final evaluation
-avg_reward, default_dist = evaluate_policy(policy, default=True)
-_, hard_dist = evaluate_policy(policy, default=False)
-evaluations.append([avg_reward, default_dist, hard_dist])
-if args.save_models: policy.save('model.pt', directory=args.save_dir)
-np.save(f"{args.save_dir}/evaluations.npy", evaluations)
+if args.save_models: policy.save(f'model_{total_timesteps}', directory=args.save_dir)

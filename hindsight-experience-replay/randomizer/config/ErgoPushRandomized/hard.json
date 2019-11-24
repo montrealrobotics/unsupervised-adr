@@ -1,0 +1,11 @@
+{
+  "env": "ErgoPusherRandomized-v0",
+  "dimensions": [
+    {
+      "name": "friction",
+      "default": 0.1,
+      "multiplier_min": 1.0,
+      "multiplier_max": 1.0
+    }
+  ]
+}
