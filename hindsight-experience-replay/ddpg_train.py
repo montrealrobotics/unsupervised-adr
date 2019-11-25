@@ -61,9 +61,9 @@ args.num_workers = 8
 env = gym.make(args.env_name)
 env_param = get_env_params(env)
 
-jobid = os.environ['SLURM_ARRAY_TASK_ID']
-seed = [40, 41, 42, 43, 44]
-args.seed = seed[int(jobid) - 1]  # Set seeds
+# jobid = os.environ['SLURM_ARRAY_TASK_ID']
+# seed = [40, 41, 42, 43, 44]
+# args.seed = seed[int(jobid) - 1]  # Set seeds
 
 env.seed(args.seed)
 torch.manual_seed(args.seed)
@@ -140,8 +140,7 @@ while total_timesteps < args.max_timesteps:  # Change this to a for loop
         env.randomize(["default"] * args.n_params)
 
         bobs_goal_state, alice_time = policy.alice_loop(args, env, env_param)  # Alice Loop
-        bob_time, done = policy.bob_loop(env, env_param, bobs_goal_state, alice_time, replay_buffer)  # Bob Loop
-        alice_reward = policy.train_alice(alice_time, bob_time)  # Train alice
+
         if total_timesteps % int(1e4) == 0:
             alice_envs_total.append(alice_envs)
             alice_envs = []
@@ -150,6 +149,8 @@ while total_timesteps < args.max_timesteps:  # Change this to a for loop
             multiplier = np.clip(env_settings[svpg_index][0][:args.n_params], 0, 1.0)
             alice_envs.append(multiplier)
             env.randomize(multiplier)  # Randomize the env for bob
+            bob_time, done = policy.bob_loop(env, env_param, bobs_goal_state, alice_time, replay_buffer)  # Bob Loop
+            alice_reward = policy.train_alice(alice_time, bob_time)  # Train alice
             svpg_rewards.append(alice_reward)
             if len(svpg_rewards) == args.num_workers * args.svpg_rollout_length:  # ADR training
                 all_rewards = np.reshape(np.asarray(svpg_rewards), (args.num_workers, args.svpg_rollout_length))
@@ -157,6 +158,8 @@ while total_timesteps < args.max_timesteps:  # Change this to a for loop
                 svpg_rewards = []
         else:
             env.randomize(["default"] * args.n_params)
+            bob_time, done = policy.bob_loop(env, env_param, bobs_goal_state, alice_time, replay_buffer)  # Bob Loop
+            alice_reward = policy.train_alice(alice_time, bob_time)
 
 
     else:
@@ -181,7 +184,9 @@ while total_timesteps < args.max_timesteps:  # Change this to a for loop
         replay_buffer.add(obs, action, new_obs["observation"], reward, done_bool)
         obs = new_obs["observation"]
         # Train the policy after collecting sufficient data
-        policy.train(replay_buffer)
+    if total_timesteps >= args.start_timesteps:
+        policy.train(replay_buffer, args.batch_size)
+
 
     if timesteps_since_eval >= args.eval_freq:
         timesteps_since_eval %= args.eval_freq

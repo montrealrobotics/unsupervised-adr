@@ -19,9 +19,16 @@ class ErgoReacherRandomizedEnv(ErgoReacherEnv):
         obs, reward, done, info = super().step(action)
         info = {'distance': self.dist.query()}
         observation = {"observation": obs,
-                       "achieved_goal": self.get_tip()[0][1:],
+                       "achieved_goal": np.asarray(self.get_tip()[0][1:]),
                        "desired_goal": obs[8:]}
         return observation, reward, done, info
+
+    def reset(self, forced=False):
+        obs = super(ErgoReacherRandomizedEnv, self).reset()
+        observation = {"observation": obs,
+                       "achieved_goal": np.asarray(self.get_tip()[0][1:]),
+                       "desired_goal": obs[8:]}
+        return observation
 
     def update_randomized_params(self):
         # these are used automatically in the `step` function

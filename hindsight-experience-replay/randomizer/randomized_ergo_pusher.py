@@ -27,6 +27,13 @@ class ErgoPusherRandomizedEnv(ErgoPusherEnv):
                        "desired_goal": obs[8:]}
         return observation, reward, done, info
 
+    def reset(self, forced=False):
+        obs = super(ErgoPusherRandomizedEnv, self).reset()
+        observation = {"observation": obs,
+                       "achieved_goal": obs[6:8],
+                       "desired_goal": obs[8:]}
+        return observation
+    
     def update_randomized_params(self):
 
         self.puck.friction = self.dimensions[0].current_value

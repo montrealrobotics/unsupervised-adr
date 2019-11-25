@@ -74,11 +74,11 @@ class AlicePolicyFetch:
     def __init__(self, args, goal_dim, action_dim=1):
         self.policy = BernoulliPolicyFetch(goal_dim, action_dim=1)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=3e-3)
-        self.comm = setup_mpi(self.policy)
+        # self.comm = setup_mpi(self.policy)
         self.args = args
 
     def select_action(self, state, deterministic=False, save_log_probs=True):
-        state = torch.from_numpy(state).float().unsqueeze(0).to(device)
+        state = torch.from_numpy(state).float().unsqueeze(0)
         probs, value = self.policy(state)
         m = Bernoulli(probs)
 
@@ -123,9 +123,9 @@ class AlicePolicyFetch:
             R = r + gamma * R
             returns.insert(0, torch.FloatTensor([R]).unsqueeze(1))
 
-        log_probs = torch.cat(self.policy.saved_log_probs).to(device)
-        returns = torch.cat(returns).detach().to(device)
-        values = torch.cat(self.policy.values).to(device)
+        log_probs = torch.cat(self.policy.saved_log_probs)
+        returns = torch.cat(returns).detach()
+        values = torch.cat(self.policy.values)
 
         advantage = returns - values
 

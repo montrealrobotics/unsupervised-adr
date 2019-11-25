@@ -55,7 +55,6 @@ class DDPG(object):
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters())
 
         self.alice_policy = AlicePolicyFetch(self.args, goal_dim, action_dim=1) # Alice Policy
-        self.alice_policy.policy.to(device)
 
         self.discount = discount
         self.tau = tau
