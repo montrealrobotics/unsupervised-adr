@@ -11,6 +11,7 @@ import OurDDPG
 from randomizer.wrappers import RandomizedEnvWrapper
 from adr.adr import ADR
 import multiprocessing as mp
+from arguments import get_args
 
 # Add the following code anywhere in your machine learning file
 experiment = Experiment(api_key="1u7Pwq0amykuUU36c0wkycF5J",
@@ -24,37 +25,7 @@ def get_env_params(env):
               'action_max': env.action_space.high[0], 'max_timesteps': env._max_episode_steps}
     return params
 
-
-## Why two arguments?
-parser = argparse.ArgumentParser()
-parser.add_argument("--policy_name", default="OurDDPG")  # Policy name
-parser.add_argument("--env_name", default="ErgoPushRandomizedEnv-Headless-v0")  # OpenAI gym environment name
-parser.add_argument("--seed", default=1, type=int)  # Sets Gym, PyTorch and Numpy seeds
-parser.add_argument("--start_timesteps", default=1e4,
-                    type=int)  # How many time steps purely random policy is run for
-parser.add_argument("--eval_freq", default=5e3, type=float)  # How often (time steps) we evaluate
-parser.add_argument("--max_timesteps", default=1e6, type=float)  # Max time steps to run environment for
-parser.add_argument("--save_models", default=True, action="store_true")  # Whether or not models are saved
-parser.add_argument("--expl_noise", default=0.1, type=float)  # Std of Gaussian exploration noise
-parser.add_argument("--batch_size", default=100, type=int)  # Batch size for both actor and critic
-parser.add_argument("--discount", default=0.99, type=float)  # Discount factor
-parser.add_argument("--tau", default=0.005, type=float)  # Target network update rate
-parser.add_argument("--policy_noise", default=0.2, type=float)  # Noise added to target policy during critic update
-parser.add_argument("--noise_clip", default=0.5, type=float)  # Range to clip target policy noise
-parser.add_argument("--policy_freq", default=2, type=int)  # Frequency of delayed policy updates
-parser.add_argument("--nparticles", default=1, type=int)
-parser.add_argument('--svpg-rollout-length', type=int, default=5)
-parser.add_argument('--sp-percent', type=float, default=0.1, help='Self Play Percentage')
-parser.add_argument('--n-params', type=int, default=1)
-parser.add_argument('--save-dir', type=str, default='saved_models/', help='the path to save the models')
-parser.add_argument('--polyak', type=float, default=0.95, help='the average coefficient')
-parser.add_argument('--approach', type=str, default='baseline', help='Different approaches for experiments')
-parser.add_argument('--sp-gamma', type=float, default=0.1, help='Self play gamma')
-parser.add_argument('--num-workers', type=int, default=mp.cpu_count() - 1, help='number of workers for trajectories sampling')
-parser.add_argument('--only-sp', type=bool, default=False, help='number of workers for trajectories sampling')
-
-
-args = parser.parse_args()
+args = get_args()
 args.save_models = True
 args.num_workers = 8
 
