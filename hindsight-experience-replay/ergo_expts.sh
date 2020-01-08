@@ -20,4 +20,3 @@ module load cuda/10.0
 source $HOME/sharath/bin/activate
 
 python  ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-default' --only-sp=True --env_name='ErgoReacherRandomizedEnv-Headless-v0' --n-params=8 
-# mpirun -np 8 python -u train.py  --sp-percent 0.0 --approach 'udr'  --seed=30 --env_name='TwoNoisyFetchHookRandomEnv-v0' --n-params=3
