@@ -1,10 +1,8 @@
-import torch
-from models import actor
 from arguments import get_args
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from plot_utils import learning_curve
+from utils.plot_utils import learning_curve
 
 if __name__=='__main__':
     args = get_args()
