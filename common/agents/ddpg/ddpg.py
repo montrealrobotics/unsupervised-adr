@@ -3,8 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import utils
-from models import AlicePolicyFetch
+from common.agents.selfplay_models import AlicePolicyFetch
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -41,6 +40,7 @@ class Critic(nn.Module):
         q = F.relu(self.l1(torch.cat([state, action], 1)))
         q = F.relu(self.l2(q))
         return self.l3(q)
+
 
 class DDPG(object):
     def __init__(self, args, state_dim, action_dim, max_action, goal_dim, discount=0.99, tau=0.005):

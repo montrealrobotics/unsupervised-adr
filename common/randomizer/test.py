@@ -15,5 +15,6 @@ for i in range(1000):
     if i % 100 == 0:
         # print('done')
         print(rew)
-        # env.randomize([1])
+        # Randomize the environment
+        env.randomize([-1])
         env.reset()

@@ -1,6 +1,6 @@
 import numpy as np
 
-from common.discriminator_rewarder import DiscriminatorRewarder
+from common.discriminator.discriminator_rewarder import DiscriminatorRewarder
 from common.svpg.svpg import SVPG
 
 class ADR:

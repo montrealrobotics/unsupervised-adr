@@ -1,21 +1,16 @@
 # import comet_ml in the top of your file
-from comet_ml import Experiment
 import numpy as np
 import torch
 import gym
 import argparse
 import os
 import gym_ergojr
-from replay_buffer import ReplayBuffer
-import OurDDPG
-from randomizer.wrappers import RandomizedEnvWrapper
-from adr.adr import ADR
+from common.agents.ddpg.replay_buffer import ReplayBuffer
+from common.agents.ddpg.ddpg import DDPG
+from common.randomizer.wrappers import RandomizedEnvWrapper
+from common.adr.adr import ADR
 import multiprocessing as mp
 from arguments import get_args
-
-# Add the following code anywhere in your machine learning file
-experiment = Experiment(api_key="1u7Pwq0amykuUU36c0wkycF5J",
-                        project_name="residual-self-play", workspace="sharath")
 
 
 def get_env_params(env):
@@ -24,6 +19,7 @@ def get_env_params(env):
     params = {'obs': observation["observation"].shape[0], 'goal': observation["achieved_goal"].shape[0], 'action': env.action_space.shape[0],
               'action_max': env.action_space.high[0], 'max_timesteps': env._max_episode_steps}
     return params
+
 
 args = get_args()
 args.save_models = True
@@ -41,26 +37,22 @@ torch.manual_seed(args.seed)
 np.random.seed(args.seed)
 args.nparticles = mp.cpu_count() - 1
 
-# state_dim = env.observation_space.shape[0]
 state_dim = env_param["obs"]
 action_dim = env_param["action"]
 max_action = env_param["action_max"]
-# action_dim = env.action_space.shape[0]
-# max_action = float(env.action_space.high[0])
 goal_dim = env_param["goal"]
+total_timesteps = 0
+timesteps_since_eval = 0
+episode_num = 0
+done = True
 env = RandomizedEnvWrapper(env, seed=args.seed)
 env.reset()
 svpg_rewards = []
 
 # Initialize policy
-policy = OurDDPG.DDPG(args, state_dim, action_dim, max_action, goal_dim)
+policy = DDPG(args, state_dim, action_dim, max_action, goal_dim)
 
 replay_buffer = ReplayBuffer(state_dim, action_dim)
-
-total_timesteps = 0
-timesteps_since_eval = 0
-episode_num = 0
-done = True
 
 # ADR integration
 adr = ADR(
@@ -89,9 +81,9 @@ args.save_dir = model_path
 alice_envs = []
 alice_envs_total = []
 
-while total_timesteps < args.max_timesteps:  # Change this to a for loop
+while total_timesteps < args.max_timesteps:
     if done:
-        env.randomize([-1] * args.n_params)
+        env.randomize([-1] * args.n_params)  # Randomize the environment
         if total_timesteps != 0:
             print("Total T: {} Episode Num: {} Episode T: {} Reward: {}".format(total_timesteps, episode_num,
                                                                                 episode_timesteps, episode_reward))
@@ -129,10 +121,8 @@ while total_timesteps < args.max_timesteps:  # Change this to a for loop
                 svpg_rewards = []
         else:
             env.randomize(["default"] * args.n_params)
-            bob_time, done = policy.bob_loop(env, env_param, bobs_goal_state, alice_time, replay_buffer)  # Bob Loop
+            bob_time, done = policy.bob_loop(env, env_param, bobs_goal_state, alice_time, replay_buffer)  # Bob Loop with only_sp=True
             alice_reward = policy.train_alice(alice_time, bob_time)
-
-
     else:
         observation = env.reset()
         obs = observation["observation"]
@@ -158,11 +148,8 @@ while total_timesteps < args.max_timesteps:  # Change this to a for loop
     if total_timesteps >= args.start_timesteps:
         policy.train(replay_buffer, args.batch_size)
 
-
     if timesteps_since_eval >= args.eval_freq:
         timesteps_since_eval %= args.eval_freq
-        experiment.add_tag(f'{args.env_name}')
-        experiment.add_tag(f'{args.approach} - {args.sp_percent} - {args.seed}')
 
         if args.save_models: policy.save(f'model_{total_timesteps}',
                                          directory=args.save_dir)

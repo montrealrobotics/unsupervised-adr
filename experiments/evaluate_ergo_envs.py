@@ -1,9 +1,9 @@
 import re
-from randomizer.wrappers import RandomizedEnvWrapper
+from common.randomizer.wrappers import RandomizedEnvWrapper
 from locale import atof
 import time
 import torch
-import randomizer
+import common.randomizer as randomizer
 from arguments import get_args
 import gym
 import gym_ergojr
@@ -11,7 +11,7 @@ import numpy as np
 import os.path as osp
 import os
 import time
-import OurDDPG
+from common.agents.ddpg.ddpg import DDPG
 
 
 def atof(text):
@@ -45,7 +45,7 @@ if __name__ == '__main__':
             models_path = list(filter(lambda x: x.lower().endswith("actor.pth"), models_path))
             models_path.sort(key=natural_keys)
 
-            env = gym.make('ErgoPushRandomizedEnv-Graphical-v0')  # Change the env to  evaluate systematically
+            env = gym.make(args.env_name)
             env = RandomizedEnvWrapper(env, seed=12)
             env.randomize(['default'] * args.n_param)
             env.seed(args.seed + 100)
@@ -56,7 +56,7 @@ if __name__ == '__main__':
             max_action = float(env.action_space.high[0])
             goal_dim = 2
             final_dist = []
-            policy = OurDDPG.DDPG(args, state_dim, action_dim, max_action, goal_dim)
+            policy = DDPG(args, state_dim, action_dim, max_action, goal_dim)
             for model in models_path:
                 print(model)
                 policy.load(model, model_path)
@@ -64,9 +64,6 @@ if __name__ == '__main__':
                 avg_dist = 0
                 model_dist = []
                 for key in range(eval_episodes):
-                    os.environ['goal_index'] = str(key)
-                    # for j in range(3):
-                    #     os.environ['puck_pos'] = str(j)
                     obs = env.reset()
                     done = False
                     while not done:

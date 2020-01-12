@@ -8,17 +8,16 @@ import os
 import os.path as osp
 from tqdm import tqdm, trange
 
-import OurDDPG
+from common.agents.ddpg.ddpg import DDPG
 import gym_ergojr
 
 parser = argparse.ArgumentParser(description='Real Robot Experiment Driver')
 
 parser.add_argument('--nepisodes', type=int, default=25, help='Number of trials per *seed*')
-# parser.add_argument('--torques', type=list, nargs='+', default=[25, 50, 100, 200, 400],
 parser.add_argument('--experiment-prefix', type=str, default='real', help='Prefix to append to logs')
 parser.add_argument('--log-dir', type=str, default='/data/fgolemo/UADR-results/real-robot', help='Log Directory Prefix')
 parser.add_argument('--model-dir', type=str, default='saved_models/', help='Model Directory Prefix')  # TODO
-# parser.add_argument('--cont', type=str, default='190329-180631', help='To continue existing file, enter timestamp here')
+parser.add_argument('--cont', type=str, default='190329-180631', help='To continue existing file, enter timestamp here')
 parser.add_argument('--cont', type=str, default='', help='To continue existing file, enter timestamp here')
 
 args = parser.parse_args()
@@ -53,7 +52,7 @@ state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0]
 
 n_episodes = 3  # num of episodes to run
-max_timesteps = 1500  # max timesteps in one episode
+max_timesteps = 100  # max timesteps in one episode
 render = True  # render the environment
 save_gif = False  # png images are saved in gif folder
 
@@ -62,7 +61,7 @@ action_dim = env.action_space.shape[0]
 max_action = float(env.action_space.high[0])
 goal_dim = 2
 
-policy = OurDDPG.DDPG(args, state_dim, action_dim, max_action, goal_dim)
+policy = DDPG(args, state_dim, action_dim, max_action, goal_dim)
 
 obs = env.reset()
 
@@ -71,7 +70,7 @@ with h5py.File(file_path, file_flag) as f:
     for policy_type in tqdm(policies, desc="approaches"):
         for torque_idx, torque in enumerate(tqdm(SEED, desc="torques...")):
 
-            model_path = osp.join(args.model_dir, policy_type, f"Variant-{torque}")  #TODO: Model path
+            model_path = osp.join(args.model_dir, policy_type, f"Variant-{torque}")
             print(model_path)
             no_models = len(os.listdir(model_path))
 
@@ -95,7 +94,7 @@ with h5py.File(file_path, file_flag) as f:
 
             tqdm.write(f'Starting analysis of {policy_type} - variant {torque}')
 
-            for model_idx, actorpth in enumerate(tqdm(os.listdir(model_path), desc="models....")): #TODO: Take care of model path
+            for model_idx, actorpth in enumerate(tqdm(os.listdir(model_path), desc="models....")):
                 # Load model weights
                 policy.load(os.path.join(model_path, actorpth))
 
