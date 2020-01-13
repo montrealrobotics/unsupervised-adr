@@ -4,7 +4,7 @@ import numpy as np
 
 import gym.spaces as spaces
 
-from randomizer.dimension import Dimension
+from common.randomizer.dimension import Dimension
 
 
 class RandomizedEnvWrapper(gym.Wrapper):

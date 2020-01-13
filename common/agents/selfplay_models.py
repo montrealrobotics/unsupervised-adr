@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Bernoulli
+import numpy as np
+
+eps = np.finfo(np.float32).eps.item()
 
 
 class BernoulliPolicyFetch(nn.Module):
