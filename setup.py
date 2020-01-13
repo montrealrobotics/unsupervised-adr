@@ -1,13 +1,10 @@
 from setuptools import setup
 
-setup(name='unsupervised-adr',
-      version='1.0',
-      install_requires=['gym>=0.5',
-                        'torch',
-                        'seaborn,'
-                        'numpy',
-                        'matplotlib',
-                        'scipy',
-                        'mujoco_py',
-                        'gym_ergojr>=1.2']
-      )
+setup(
+    name='unsupadr',
+    version='1.0',
+    packages=['common'],
+    install_requires=[
+        "torch>=1.0", "tqdm", "numpy", "matplotlib", 'gym>=0.10',
+        'mujoco_py>=1.15'
+    ])
