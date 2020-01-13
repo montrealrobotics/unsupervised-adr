@@ -1,4 +1,3 @@
-# import comet_ml in the top of your file
 import numpy as np
 import torch
 import gym
