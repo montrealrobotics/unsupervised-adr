@@ -6,6 +6,7 @@ import os
 import gym_ergojr
 from common.agents.ddpg.replay_buffer import ReplayBuffer
 from common.agents.ddpg.ddpg import DDPG
+import common.randomizer
 from common.randomizer.wrappers import RandomizedEnvWrapper
 from common.adr.adr import ADR
 import multiprocessing as mp
