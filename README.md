@@ -9,29 +9,29 @@ There are few important flags which differentiate various experiments. `--approa
 ### Uniform Domain Randomization 
 For `ErgoReacher` baseline experiments:
 
-`python  experiments/ddpg_train.py  --sp-percent 0.0 --approach 'udr' --env_name='ErgoReacherRandomizedEnv-Headless-v0' --n-params=8 `
+`python  experiments/ddpg_train.py  --sp-percent 0.0 --approach 'udr' --env-name='ErgoReacherRandomizedEnv-Headless-v0' --n-params=8 `
 
 For `ErgoPusher` baseline experiments:
 
-`python  experiments/ddpg_train.py  --sp-percent 0.0 --approach 'udr' --env_name='ErgoPusherRandomizedEnv-Headless-v0' --n-params=1`
+`python  experiments/ddpg_train.py  --sp-percent 0.0 --approach 'udr' --env-name='ErgoPushRandomizedEnv-Headless-v0' --n-params=1`
 
 ### Unsupervised Default 
 For `ErgoReacher` experiments:
 
-`python  experiments/ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-default' --only-sp=True  --env_name='ErgoReacherRandomizedEnv-Headless-v0' --n-params=8 `
+`python  experiments/ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-default' --only-sp=True  --env-name='ErgoReacherRandomizedEnv-Headless-v0' --n-params=8 `
 
 For `ErgoPusher` experiments:
 
-`python  experiments/ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-default' --only-sp=True  --env_name='ErgoPusherRandomizedEnv-Headless-v0' --n-params=1`
+`python  experiments/ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-default' --only-sp=True  --env-name='ErgoPushRandomizedEnv-Headless-v0' --n-params=1`
 
 ### Unsupervised Active Domain Randomization
 For `ErgoReacher` experiments:
 
-`python  experiments/ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-adr' --only-sp=True  --env_name='ErgoReacherRandomizedEnv-Headless-v0' --n-params=8`
+`python  experiments/ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-adr' --only-sp=True  --env-name='ErgoReacherRandomizedEnv-Headless-v0' --n-params=8`
 
 For `ErgoPusher` experiments:
 
-`python  experiments/ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-adr' --only-sp=True  --env_name='ErgoPusherRandomizedEnv-Headless-v0' --n-params=1`
+`python  experiments/ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-adr' --only-sp=True  --env-name='ErgoPushRandomizedEnv-Headless-v0' --n-params=1`
 
 ## Evaluations
 In order to evaluate the trained models on simulator, on the command line execute the following. 
