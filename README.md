@@ -11,7 +11,7 @@ For `ErgoReacher` baseline experiments:
 
 `python  experiments/ddpg_train.py  --sp-percent 0.0 --approach 'udr' --env_name='ErgoReacherRandomizedEnv-Headless-v0' --n-params=8 `
 
-For `ErgoReacher` baseline experiments:
+For `ErgoPusher` baseline experiments:
 
 `python  experiments/ddpg_train.py  --sp-percent 0.0 --approach 'udr' --env_name='ErgoPusherRandomizedEnv-Headless-v0' --n-params=1`
 
@@ -20,7 +20,7 @@ For `ErgoReacher` experiments:
 
 `python  experiments/ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-default' --only-sp=True  --env_name='ErgoReacherRandomizedEnv-Headless-v0' --n-params=8 `
 
-For `ErgoReacher` experiments:
+For `ErgoPusher` experiments:
 
 `python  experiments/ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-default' --only-sp=True  --env_name='ErgoPusherRandomizedEnv-Headless-v0' --n-params=1`
 
@@ -29,7 +29,7 @@ For `ErgoReacher` experiments:
 
 `python  experiments/ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-adr' --only-sp=True  --env_name='ErgoReacherRandomizedEnv-Headless-v0' --n-params=8`
 
-For `ErgoReacher` experiments:
+For `ErgoPusher` experiments:
 
 `python  experiments/ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-adr' --only-sp=True  --env_name='ErgoPusherRandomizedEnv-Headless-v0' --n-params=1`
 
@@ -39,6 +39,7 @@ In order to evaluate the trained models on simulator, on the command line execut
 Here `--mode` can be `[default | hard]`. Here is an example to evaluate `ErgoReacher` in default environment. You can likewise evaluate `ErgoPusher` with different modes.  
  
 `python experiments/evaluate_ergo_envs.py  --env-name "ErgoReacherRandomizedEnv-Headless-v0"  --mode='default' --sp-polyak 0.95 --n-params=8`
+
 ## Reference
 coming soon.
 
