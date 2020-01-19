@@ -1,6 +1,7 @@
 # Unsupervised Active Domain Randomization 
 This repository provides official code base for the paper "Unsupervised Active Domain Randomization for Goal Specified Environments".
 
+![Self-Supervised Active Domain Randomization Architecture](architecture-selfplay.png)
 ## Experiments
 We perform our experiments on ErgoReacher, a 4 DoF arm and ErgoPusher, a 3-DoF arm from both in simulation and on the real robot.
 ### Important Flags
