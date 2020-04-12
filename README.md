@@ -1,4 +1,4 @@
-# Unsupervised Active Domain Randomization 
+# Self-Supervised Active Domain Randomization 
 This repository provides official code base for the paper "Generating Automatic Curricula via Self-Supervised Active Domain Randomization".
 ![Self-Supervised Active Domain Randomization Architecture](architecture-selfplay.png)
 
@@ -25,7 +25,7 @@ For `ErgoPusher` experiments:
 
 `python  experiments/ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-default' --only-sp=True  --env-name='ErgoPushRandomizedEnv-Headless-v0' --n-params=1`
 
-### Unsupervised Active Domain Randomization
+### Self-Supervised Active Domain Randomization
 For `ErgoReacher` experiments:
 
 `python  experiments/ddpg_train.py  --sp-percent 1.0 --approach 'unsupervised-adr' --only-sp=True  --env-name='ErgoReacherRandomizedEnv-Headless-v0' --n-params=8`
@@ -42,6 +42,12 @@ Here `--mode` can be `[default | hard]`. Here is an example to evaluate `ErgoRea
 `python experiments/evaluate_ergo_envs.py  --env-name "ErgoReacherRandomizedEnv-Headless-v0"  --mode='default' --sp-polyak 0.95 --n-params=8`
 
 ## Reference
-coming soon.
+
+@article{raparthy2020selfsupadr,
+  title={Generating Automatic Curricula via Self-Supervised Active Domain Randomization},
+  author={Raparthy, Sharath Chandra and Mehta, Bhairav and Golemo, Florian and Paull, Liam},
+  url={https://arxiv.org/abs/2002.07911},
+  year={2020}
+}
 
 Built by [@Sharath](https://sharathraparthy.github.io/) and [@Bhairav Mehta](https://bhairavmehta95.github.io/)
