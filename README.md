@@ -43,11 +43,13 @@ Here `--mode` can be `[default | hard]`. Here is an example to evaluate `ErgoRea
 
 ## Reference
 
+```
 @article{raparthy2020selfsupadr,
   title={Generating Automatic Curricula via Self-Supervised Active Domain Randomization},
   author={Raparthy, Sharath Chandra and Mehta, Bhairav and Golemo, Florian and Paull, Liam},
   url={https://arxiv.org/abs/2002.07911},
   year={2020}
 }
+```
 
 Built by [@Sharath](https://sharathraparthy.github.io/) and [@Bhairav Mehta](https://bhairavmehta95.github.io/)
