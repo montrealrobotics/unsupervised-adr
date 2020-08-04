@@ -6,7 +6,8 @@ import os
 import gym_ergojr
 from common.agents.ddpg.replay_buffer import ReplayBuffer
 from common.agents.ddpg.ddpg import DDPG
-import common.randomizer
+# from common.randomizer import *
+# import common.randomizer
 from common.randomizer.wrappers import RandomizedEnvWrapper
 from common.adr.adr import ADR
 import multiprocessing as mp
@@ -15,9 +16,12 @@ from arguments import get_args
 
 def get_env_params(env):
     observation = env.reset()
-    # close the environment
-    params = {'obs': observation["observation"].shape[0], 'goal': observation["achieved_goal"].shape[0], 'action': env.action_space.shape[0],
-              'action_max': env.action_space.high[0], 'max_timesteps': env._max_episode_steps}
+    # reset the environment
+    params = {'obs': observation["observation"].shape[0],
+              'goal': observation["achieved_goal"].shape[0],
+              'action': env.action_space.shape[0],
+              'action_max': env.action_space.high[0],
+              'max_timesteps': env._max_episode_steps}
     return params
 
 
@@ -28,19 +32,15 @@ args.num_workers = 8
 env = gym.make(args.env_name)
 env_param = get_env_params(env)
 
-# jobid = os.environ['SLURM_ARRAY_TASK_ID']
-# seed = [40, 41, 42, 43, 44]
-# args.seed = seed[int(jobid) - 1]  # Set seeds
+if args.use_slurm:
+    jobid = os.environ['SLURM_ARRAY_TASK_ID']
+    seed = [40, 41, 42, 43, 44]
+    args.seed = seed[int(jobid) - 1]  # Set seeds
 
 env.seed(args.seed)
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
-args.nparticles = mp.cpu_count() - 1
 
-state_dim = env_param["obs"]
-action_dim = env_param["action"]
-max_action = env_param["action_max"]
-goal_dim = env_param["goal"]
 total_timesteps = 0
 timesteps_since_eval = 0
 episode_num = 0
@@ -50,29 +50,33 @@ env.reset()
 svpg_rewards = []
 
 # Initialize policy
-policy = DDPG(args, state_dim, action_dim, max_action, goal_dim)
+policy = DDPG(args=args,
+              state_dim=env_param["obs"],
+              action_dim=env_param["action"],
+              max_action=env_param["action_max"],
+              goal_dim=env_param["goal"])
 
-replay_buffer = ReplayBuffer(state_dim, action_dim)
+replay_buffer = ReplayBuffer(state_dim=env_param["obs"],
+                             action_dim=env_param["action"],
+                             max_size=args.buffer_size)
 
 # ADR integration
-adr = ADR(
-    nparticles=args.num_workers,
-    nparams=args.n_params,
-    state_dim=1,
-    action_dim=1,
-    temperature=10,
-    svpg_rollout_length=args.svpg_rollout_length,
-    svpg_horizon=25,
-    max_step_length=0.05,
-    reward_scale=1,
-    initial_svpg_steps=0,
-    seed=args.seed,
-    discriminator_batchsz=320,
-)
+adr = ADR(nparticles=args.num_workers,
+          nparams=args.n_params,
+          state_dim=1,
+          action_dim=1,
+          temperature=10,
+          svpg_rollout_length=args.svpg_rollout_length,
+          svpg_horizon=25,
+          max_step_length=0.05,
+          reward_scale=1,
+          initial_svpg_steps=0,
+          seed=args.seed,
+          discriminator_batchsz=320)
 count = 0
 args.save_dir = os.getcwd() + '/' + os.path.join(args.save_dir,
-                              'sp{}polyak{}'.format(args.sp_percent, args.polyak) + '-' + args.approach,
-                              str(args.seed))
+                                                 'sp{}polyak{}'.format(args.sp_percent, args.polyak) + '-' + args.approach,
+                                                 str(args.seed))
 model_path = os.path.join(args.save_dir, args.env_name)
 
 if not os.path.isdir(model_path):
@@ -103,10 +107,6 @@ while total_timesteps < args.max_timesteps:
         env.randomize(["default"] * args.n_params)
 
         bobs_goal_state, alice_time = policy.alice_loop(args, env, env_param)  # Alice Loop
-
-        if total_timesteps % int(1e4) == 0:
-            alice_envs_total.append(alice_envs)
-            alice_envs = []
 
         if not args.only_sp:
             multiplier = np.clip(env_settings[svpg_index][0][:args.n_params], 0, 1.0)
@@ -151,9 +151,9 @@ while total_timesteps < args.max_timesteps:
     if timesteps_since_eval >= args.eval_freq:
         timesteps_since_eval %= args.eval_freq
 
-        if args.save_models: policy.save(f'model_{total_timesteps}',
+        if args.save_models: policy.save(f'model_{total_timesteps}_{args.sp_gamma}',
                                          directory=args.save_dir)
-        np.save(f"{args.save_dir}/alice_envs.npy", alice_envs_total)
+        np.save(f"{args.save_dir}/alice_envs_{args.sp_gamma}.npy", np.asarray(alice_envs))
         print("---------------------------------------")
         print("Env Name: %s | Seed : %s | sp-percent : %s" % (args.env_name, args.seed, args.sp_percent))
         print("---------------------------------------")
@@ -162,4 +162,5 @@ while total_timesteps < args.max_timesteps:
     total_timesteps += 1
     timesteps_since_eval += 1
 
-if args.save_models: policy.save(f'model_{total_timesteps}', directory=args.save_dir)
+if args.save_models:
+    policy.save(f'model_{total_timesteps}_{args.sp_gamma}', directory=args.save_dir)

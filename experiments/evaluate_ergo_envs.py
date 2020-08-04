@@ -29,26 +29,33 @@ def natural_keys(text):
 if __name__ == '__main__':
     args = get_args()
     # load the model param
-    SEED = [41, 42, 43, 44]
-    APPROACH = ['udr']
-    SP_PERCENT = [0.0]
+    # args.env_name = 'ErgoReacherRandomizedEnv-Headless-v0'
+    # args.n_params = 1
+    SEED = [i for i in range(111, 112)]
+    APPROACH = ['unsupervised-adr']
+    SP_PERCENT = [1.0]
+    args.sp_polyak = 0.95
     for i, approach in enumerate(APPROACH):
         for seed in SEED:
             print('------------------------------------------------------------------------')
             print(f'Approach : {approach} | Seed : {seed} | Env : {args.env_name}')
             print('------------------------------------------------------------------------')
-            args.save_dir = osp.join('/saved_models', 'sp{}polyak{}'.format(SP_PERCENT[i], args.sp_polyak) + '-' + approach)
+            args.save_dir = osp.join(os.getcwd()
+                                     , '/saved_models', 'sp{}polyak{}'.
+                                     format(SP_PERCENT[i], args.sp_polyak) + '-' + approach)
+
             model_path = osp.join(os.getcwd() + args.save_dir, str(seed), args.env_name)
             models_path = os.listdir(model_path + '/')
 
             # List the file names that start with model and sort according to number.
-            models_path = list(filter(lambda x: x.lower().endswith("actor.pth"), models_path))
+            models_path = list(filter(lambda x: x.lower().endswith(f'{args.sp_gamma}_actor.pth'), models_path))
+            print(models_path)
             models_path.sort(key=natural_keys)
-
-            env = gym.make(args.env_name)
+            print(models_path)
+            env = gym.make("ErgoPushDefaultEnv-Headless-v0")
             env = RandomizedEnvWrapper(env, seed=12)
-            env.randomize(['default'] * args.n_param)
-            env.seed(args.seed + 100)
+            env.randomize(['default'] * args.n_params)
+            env.seed(args.seed + 10)
             eval_episodes = 1
 
             state_dim = env.observation_space.shape[0]
@@ -59,6 +66,9 @@ if __name__ == '__main__':
             policy = DDPG(args, state_dim, action_dim, max_action, goal_dim)
             for model in models_path:
                 print(model)
+
+                if not os.path.isfile(model_path + '/' + model):
+                    continue
                 policy.load(model, model_path)
                 avg_reward = 0.
                 avg_dist = 0
@@ -67,13 +77,12 @@ if __name__ == '__main__':
                     obs = env.reset()
                     done = False
                     while not done:
-                        time.sleep(0.01)
-                        action = policy.select_action(np.array(obs, dtype=np.float64))
+                        action = policy.select_action(np.array(obs["observation"], dtype=np.float64))
                         obs, reward, done, info = env.step(action)
                         avg_reward += reward
 
-                    avg_dist += info["distance"]
+                    avg_dist += info["goal_dist"]
                 final_dist.append(avg_dist/eval_episodes)
-            np.save(model_path + f'{args.mode}_evaluation.npy', np.asarray(final_dist))
+            np.save(model_path + f'{args.mode}_evaluation_{args.sp_gamma}.npy', np.asarray(final_dist))
 
 

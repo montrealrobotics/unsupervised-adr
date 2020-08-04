@@ -3,9 +3,9 @@
   "dimensions": [
     {
       "name": "friction",
-      "default": 0.095,
-      "multiplier_min": 1.0,
-      "multiplier_max": 1.0
+      "default": 0.4,
+      "multiplier_min": 0.05,
+      "multiplier_max": 2.0
     }
   ]
 }

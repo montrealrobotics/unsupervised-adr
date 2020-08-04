@@ -2,6 +2,12 @@ import itertools
 import numpy as np
 import os
 import os.path as osp
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+mpl.use('Agg')
+from arguments import get_args
+
+PLOTCOLORS = ['darkmagenta', 'orange', 'red', 'darkolivegreen', 'hotpink', 'blue']
 
 
 def learning_curve(args, selfplay_percent, selplay_index, approach, seed):
@@ -18,7 +24,7 @@ def learning_curve(args, selfplay_percent, selplay_index, approach, seed):
         a = []
         save_dir = osp.join(os.getcwd() + '/' + args.save_dir, "sp" + str(selfplay_percent[selplay_index]) + "polyak" +
                             str(args.polyak) + '-' + str(approach), str(s) + '/')
-        array = np.load(save_dir + f'{args.env_name}{args.mode}_evaluation.npy', allow_pickle=True)
+        array = np.load(save_dir + f'{args.env_name}{args.mode}_evaluation_{args.sp_gamma}.npy', allow_pickle=True)
         for arr in array:
             a.append(arr)
         array = np.asarray(a)
@@ -62,14 +68,57 @@ def smooth(y, radius, mode='two_sided', valid_only=False):
 
 
 def sampling_plot(args, seed, sp_index, approach='adr'):
+    values = []
+    save_plots = os.getcwd() + f'/plots/{args.env_name}/'
+    ticks = ["0-200K", "200K-400k", "400K-600k", "600K-800k", "800k-1000k"]
+    steps = [(t + 1)* 199000 for t in range(5)]
+    start = 0
+    for st in steps:
+        print(start, st)
+        seed_ = []
+        for s in seed:
+            save_dir = osp.join(os.getcwd() + '/' + args.save_dir, "sp" + str(sp_index) + "polyak" +
+                                str(args.polyak) + '-' + str(approach), str(s), args.env_name + '/')
+            if not os.path.isfile(save_dir + f'alice_envs_{args.sp_gamma}.npy'):
+                continue
+            alice_envs = np.load(save_dir + f'alice_envs_{args.sp_gamma}.npy', allow_pickle=True)
+            print(alice_envs.shape, s)
+            seed_.extend(alice_envs[start:st, :])
+        samplings = np.reshape(seed_, (-1, 1))
+        print(samplings.shape)
+        start = st
+        values.append(samplings)
+    
+    x_ticks = np.linspace(0.1, 0.8, 20)
+    x_ticks = np.around(x_ticks, 3)
+    values = np.asarray(values)
+    print(values.shape)
+    values = values.squeeze(2)
+#    poses = np.arange(len(x_ticks))
 
-    for s in seed:
-        save_dir = osp.join(args.save_dir, "sp" + str(sp_index) + "polyak" +
-                            str(args.polyak) + '-' + str(approach), str(s), args.env_name + '/')
-        print(save_dir)
-        alice_envs = np.load(save_dir + f'alice_envs.npy', allow_pickle=True)
-        envs = alice_envs
-        envs = list(itertools.chain(*envs))
-    list_ = np.reshape(envs, (-1, 1))
-    return list_
+    bins = 20
+#    h = plt.hist(values.T, bins=bins, stacked=True, label=[t for t in ticks], alpha=0.4, color=PLOTCOLORS[:5])
+    h = plt.hist(np.reshape(values, (-1, 1)), bins=bins, label='samplings', alpha=0.4, color=PLOTCOLORS[:1])
+    np.save('{}_sampling.npy'.format(args.env_name), values)
+    plt.ylabel('Frequency')
+    plt.xlabel('Randomization Coefficient')
+#    x_tickpos = [0.65 * patch.get_width() + patch.getxy()[0] for patch in h]
+#    plt.xticks(x_ticks)
+    plt.legend(loc="upper right")
+    plt.title(f'{args.env_name} | Range (0.05 - 2)')
+    plt.savefig(f'{save_plots}/sampling_plot_{args.env_name}_{args.sp_gamma}_range(0.05)_2.png')
+    return values
+
+
+if __name__=='__main__':
+    args = get_args()
+    approach = ["unsupervised-adr"]
+    sp_index = [1.0]
+    PLOTCOLORS = ['hotpink', 'red', 'darkolivegreen', 'hotpink', 'blue']
+    save_plots = os.getcwd() + f'/plots/{args.env_name}/'
+    if not os.path.isdir(save_plots):
+        os.makedirs(save_plots)
+    plt.rcParams["figure.figsize"] = (10, 6)
+    SEED = [i for i in range(85, 91)]
+    sampling_plot(args, seed=SEED, sp_index=sp_index[0], approach=approach[0])
 

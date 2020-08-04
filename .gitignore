@@ -110,3 +110,7 @@ venv.bak/
 *.pth
 *.pt
 *.npy
+*.npz
+*.png
+*.pk
+*.sh
