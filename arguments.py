@@ -39,8 +39,8 @@ def get_args():
     parser.add_argument("--policy-freq", default=2, type=int)  # Frequency of delayed policy updates
     parser.add_argument("--nparticles", default=1, type=int)
     parser.add_argument('--n-params', type=int, default=1)
-    parser.add_argument('--only-sp', type=bool, action='store_true')
-    parser.add_argument('--use-slurm', type=bool, action='store_true')
+    parser.add_argument('--only-sp', action='store_true')
+    parser.add_argument('--use-slurm', action='store_true')
 
 
 # Add more arguments if needed.
