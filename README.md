@@ -1,6 +1,22 @@
 # Self-Supervised Active Domain Randomization 
 This repository provides official code base for the paper "Generating Automatic Curricula via Self-Supervised Active Domain Randomization".
+### Requirements
+Create a conda environment
+`conda create --name ssadr python=3.6.9`
 
+Install gym-ergojr
+
+````
+git clone https://github.com/fgolemo/gym-ergojr.git 
+cd gym-ergojr/
+pip install -e .
+````
+Clone this repo and install the requirements
+````
+unzip unsupervised-adr.zip
+cd unsupervised-adr/
+pip install -e .
+````
 ## Experiments
 We perform our experiments on ErgoReacher, a 4 DoF arm and ErgoPusher, a 3-DoF arm from both in simulation and on the real robot.
 ### Important Flags
